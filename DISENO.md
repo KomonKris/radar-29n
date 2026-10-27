@@ -38,7 +38,7 @@ Es **automático del todo**: no hay revisión humana antes de publicar.
 - Δ = (cuota hoy − cuota anterior) / cuota anterior, por bloque (redes %, digitales %, analógico piezas/total).
 - Escala: Δ ≥ +50 % → **+2** · +25..50 % → **+1** · −20..+25 % → **0** · −50..−20 % → **−1** · ≤ −50 % → **−2**.
 - Un bloque cuenta solo si tiene ≥ 10 menciones en redes, ≥ 10 piezas en digitales o ≥ 2 piezas en analógico (hoy o en el informe anterior). Si no llega en ningún bloque, el tema sale como "poco dato". *(Umbral: decisión de Claude.)*
-- Nota del tema = media redondeada de los bloques válidos. Indicador: ▲ si > 0, ● si 0, ▼ si < 0.
+- Nota del tema = media de los bloques válidos, redondeada hacia cero en los medios: −1,5 → −1 y ±0,5 → 0. Cuando los bloques van en direcciones opuestas, no se exagera. *(Decisión de Claude.)* Indicador: ▲ si > 0, ● si 0, ▼ si < 0.
 - Se compara con el **informe anterior disponible**, no con el día natural anterior (el lunes se compara con el viernes).
 - El histórico se guarda en el repo: `data/historico/<fecha>.json`, con las cifras extraídas de Onclusive.
 

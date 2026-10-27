@@ -1,0 +1,17 @@
+{
+  "ensayo": true,
+  "telegram": {
+    "bot": "@radar29n_bot",
+    "aviso_chat_id": 1871989485,
+    "donantes_chat_id": -1003931172554,
+    "ecosistema_chat_id": null,
+    "ecosistema_thread_id": null
+  },
+  "drive": {
+    "raiz": "1YEtEh7jXhYqw6kF0k9lheTTdcNGr4cs1",
+    "onclusive": "1QZcLoeEwLtc85CHr3E3PovKOSCLC0qFy",
+    "maldita": "1jlJq-djBoOF3KxKYNib9zJNcRsj2sDVd",
+    "informes_donantes": "1kvQfrxmt3EOCsnwoAQSedeh7zm0VPhuf",
+    "datos": "1301SXIulbqnv5QRktcZ0SHNJ5xGyny7V"
+  }
+}
