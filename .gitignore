@@ -1,0 +1,6 @@
+# secretos y temporales
+*.claves.txt
+claves*.txt
+.env
+__pycache__/
+*.pdf
