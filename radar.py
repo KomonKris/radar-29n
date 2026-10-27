@@ -161,32 +161,49 @@ def e(s):
     return html.escape(str(s), quote=False)
 
 
+NUM = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣"]
+
+
+def emoji_ev(f):
+    """Indicador del evolutivo para Telegram (el PDF usa ▲●▼)."""
+    if f["nota"] is None:
+        return {"NUEVA": "🆕 nueva", "DESAPARECE": "💨 desaparece"}.get(f["estado"], "⚪ " + f["estado"])
+    return {2: "🚀 +2", 1: "📈 +1", 0: "➖ 0", -1: "📉 −1", -2: "🔻 −2"}[f["nota"]]
+
+
 def mensaje(d, para):
     ev = {f["tema"]: f for f in d.get("evolutivo", {}).get("filas", [])}
     falta = d.get("pendiente", [])
-    L = [f"<b>Radar 29N · {fecha_larga(d['fecha'])}</b> · faltan {(ELECCIONES - date.fromisoformat(d['fecha'])).days} días"]
+    L = [f"🗳️ <b>Radar 29N · {fecha_larga(d['fecha'])}</b>",
+         f"⏳ Faltan <b>{(ELECCIONES - date.fromisoformat(d['fecha'])).days} días</b> para el 29N"]
     if falta:
-        L.append(f"<i>{e(', '.join(falta))}: pendiente, se completará mañana.</i>")
+        L.append(f"⚠️ <i>{e(', '.join(falta))}: pendiente, se completará mañana.</i>")
     if d.get("tono"):
-        L += ["", e(d["tono"])]
+        L += ["", f"🌡️ <b>Cómo está la conversación</b>", e(d["tono"])]
     if d.get("hallazgos"):
-        L += ["", "<b>Cinco hallazgos</b>"]
-        L += [f"{i}. {e(h['texto'])}" for i, h in enumerate(d["hallazgos"][:5], 1)]
+        L += ["", "🔎 <b>Cinco hallazgos del día</b>"]
+        L += [f"{NUM[i]} {e(h['texto'])}" for i, h in enumerate(d["hallazgos"][:5])]
     t = d.get("traccion")
     if t:
-        L += ["", f"<b>Más tracción:</b> {e(t)}" + (f" ({indicador(ev[t])})" if t in ev else "")]
+        L += ["", f"🔥 <b>Más tracción:</b> {e(t)}" + (f" · {emoji_ev(ev[t])}" if t in ev else "")]
+    mov = [f for f in ev.values() if f["estado"] in ("NUEVA", "DESAPARECE") or (f["nota"] or 0) != 0]
+    if mov:
+        L += ["", "📊 <b>Qué se mueve desde ayer</b>"]
+        L += [f"{emoji_ev(f)} · {e(f['tema'])}" for f in mov]
     if d.get("marcos"):
-        L += ["", "<b>Marcos</b>"]
+        L += ["", "🧭 <b>Marcos dominantes</b>"]
         for m in d["marcos"]:
-            x = f"<b>{e(m['tema'])}</b>: {e(m['dominante'])}"
+            x = f"▪️ <b>{e(m['tema'])}</b>: {e(m['dominante'])}"
             if m.get("bloques"):
-                x += " — " + e(m["bloques"])
+                x += f"\n    💬 {e(m['bloques'])}"
             L.append(x)
     if para == "donantes" and d.get("maldita"):
-        L += ["", f"<b>Desinformación (Maldita):</b> {e(d['maldita']['resumen'])}"]
+        L += ["", f"🚨 <b>Desinformación (Maldita)</b>", e(d["maldita"]["resumen"])]
     if d.get("vigilar"):
-        L += ["", "<b>A vigilar</b>"]
-        L += [f"· {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in d["vigilar"][:2]]
+        L += ["", "👀 <b>A vigilar</b>"]
+        L += [f"📅 {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in d["vigilar"][:2]]
+    if para == "donantes":
+        L += ["", "📎 Informe completo en el PDF adjunto."]
     L += ["", f"<i>{PIE}</i>"]
     return "\n".join(L)
 

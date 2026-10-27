@@ -32,7 +32,7 @@ Es **automático del todo**: no hay revisión humana antes de publicar.
 | 17 | agenda-prensa | **Fuera.** Es otra cosa y se pausa. Solo se copia el patrón de envío (`tg.py`) |
 | 18 | Alcance del evolutivo | Los 7 temas prioritarios fijos de Onclusive (Vivienda, Bulos, Voto exterior, Voto por correo, Clima, Energía, Primer voto joven) + las narrativas de "Narrativas en redes" que repiten de un día a otro. Las demás se marcan NUEVA / DESAPARECE |
 | 19 | Arranque | Miércoles 28-oct en **ensayo** (todo va solo al privado de Cris). Jueves 29-oct en real si Cris da el OK |
-| 20 | Estilo | Inclusivo con -e, sin emojis (solo ▲ ● ▼), sin firma, "Radar 29N · <fecha>", registro informativo con cifra en cada afirmación, castellano |
+| 20 | Estilo | Inclusivo con -e, sin firma, "Radar 29N · <fecha>", registro informativo con cifra en cada afirmación, castellano. **Telegram con emojis** en la plantilla, en títulos, números e indicadores (cambio de Cris del 27-oct). El PDF sigue neutro (▲ ● ▼) y el texto extraído no lleva emojis |
 
 ## Fórmula del evolutivo
 - Δ = (cuota hoy − cuota anterior) / cuota anterior, por bloque (redes %, digitales %, analógico piezas/total).

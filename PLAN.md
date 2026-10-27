@@ -47,6 +47,18 @@ Diseño: `DISENO.md`. Objetivo: ensayo el miércoles 28-oct a las 12:00 y salida
 - [ ] Cron `0 11 * * 1-5` UTC (12:00 Madrid, en horario de invierno desde el 25-oct). La segunda y la tercera pasada: el intervalo mínimo entre ejecuciones es de 1 h, así que van como rutinas aparte a las 12:30 y a las 13:00.
 - [ ] Secretos: token del bot y chat_id (donantes, Political Watch, Cris).
 
+**Rutinas creadas el 27-oct (ensayo, L-V, Sonnet 5.5, repo KomonKris/radar-29n):**
+- 12:00 `trig_01QFPoTyz5NDAsrzUQ3mAkJ6`
+- 12:30 `trig_01Y36WBjnGbUFQpCok8tV9V2`
+- 13:00 final `trig_013Qj9DwdKdLsGDJczU9S3MA`
+
+El planificador añade unos minutos de margen: la primera pasada sale el 28-oct a las 12:06, 12:31 y 13:02. Se gestionan en https://claude.ai/code/routines.
+
+**Ensayo general del 27-oct** (`cse_01YBhMSYNqf6tCWUYo7jheGU`, 6 min): OK de principio a fin, con los dos mensajes y el PDF en el privado de Cris. En Drive quedaron `historico_2026-10-27.json` (base del 28) y `enviado_2026-10-27`. Desviaciones corregidas en PROMPT.md:
+- usó `tests/` como datos, y ahora está prohibido;
+- lanzó `pip` dos veces;
+- quiso subir el PDF a Drive, y se ha quitado: el Google Doc es el archivo.
+
 ## 4. Ensayo y salida
 - [ ] 28-oct, 12:00: ensayo y revisión con Cris, Gabriela y Pali.
 - [ ] 28-oct por la tarde: quitar `ENSAYO` si Cris da el OK.
