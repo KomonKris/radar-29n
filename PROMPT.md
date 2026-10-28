@@ -77,11 +77,12 @@ En la carpeta Drive `drive.datos`, busca un archivo llamado `enviado_HOY`. Si ex
 - Ejecuta `radar.py evolutivo /tmp/hoy.json /tmp/anterior.json`.
 - Sube `/tmp/hoy.json` a `drive.datos` como `historico_HOY.json`, con `contentMimeType` `application/json` y `disableConversionToGoogleType` = true.
 
-## 5. PDF de donantes
-1. `radar.py informe /tmp/hoy.json > /tmp/informe.html`.
-2. Crea en `drive.informes_donantes`, en la subcarpeta del mes (créala si no existe), un Google Doc `Radar29N_donantes_HOY` a partir de ese HTML (`contentMimeType` `text/html`).
+## 5. PDF de donantes y de ecosistema
+Haz esto **dos veces**, con `PARA` = `donantes` y `PARA` = `ecosistema`. El de ecosistema sale sin la sección de Maldita; `radar.py` ya la quita.
+1. `radar.py informe /tmp/hoy.json PARA > /tmp/informe_PARA.html`.
+2. Crea en `drive.informes_donantes`, en la subcarpeta del mes (créala si no existe), un Google Doc `Radar29N_PARA_HOY` a partir de ese HTML (`contentMimeType` `text/html`).
 3. Expórtalo con `download_file_content` y `exportMimeType` `application/pdf`.
-4. Decodifícalo a `/tmp/Radar29N_donantes_HOY.pdf`.
+4. Decodifícalo a `/tmp/Radar29N_PARA_HOY.pdf`.
 5. No subas el PDF a Drive. El Google Doc es el archivo y del PDF se puede sacar una copia cuando se quiera.
 
 ## 6. Enviar
@@ -89,9 +90,9 @@ En la carpeta Drive `drive.datos`, busca un archivo llamado `enviado_HOY`. Si ex
 radar.py mensaje /tmp/hoy.json donantes   > /tmp/m_don.txt
 radar.py mensaje /tmp/hoy.json ecosistema > /tmp/m_eco.txt
 radar.py enviar donantes   --texto /tmp/m_don.txt --pdf /tmp/Radar29N_donantes_HOY.pdf
-radar.py enviar ecosistema --texto /tmp/m_eco.txt
+radar.py enviar ecosistema --texto /tmp/m_eco.txt --pdf /tmp/Radar29N_ecosistema_HOY.pdf
 ```
-- Si `enviar ecosistema` falla porque `ecosistema_chat_id` está vacío, no es un error grave. El bot aún no está en Political Watch: manda `/tmp/m_eco.txt` a Cris con `radar.py enviar aviso --texto /tmp/m_eco.txt`, precedido de la línea "Para copiar en Political Watch:".
+- Si `enviar ecosistema` falla porque `ecosistema_chat_id` está vacío, no es un error grave. El bot aún no está en Political Watch: manda `/tmp/m_eco.txt` y su PDF a Cris con `radar.py enviar aviso --texto /tmp/m_eco.txt --pdf /tmp/Radar29N_ecosistema_HOY.pdf`, precedido de la línea "Para copiar en Political Watch:".
 - Revisa antes de enviar: cada mensaje debe tener menos de 4.000 caracteres. Si se pasa, acorta los marcos.
 
 ## 7. Marcar enviado

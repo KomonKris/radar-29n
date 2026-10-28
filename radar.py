@@ -8,7 +8,7 @@ SCHEMA.md. Este script hace lo determinista:
   python radar.py validar <hoy.json>                      sale 1 si no cuadra
   python radar.py evolutivo <hoy.json> <anterior.json|->  añade "evolutivo" a hoy.json
   python radar.py mensaje <hoy.json> ecosistema|donantes  texto HTML de Telegram
-  python radar.py informe <hoy.json>                      HTML del PDF de donantes
+  python radar.py informe <hoy.json> donantes|ecosistema  HTML del PDF (ecosistema: sin Maldita)
   python radar.py enviar <destino> --texto F [--pdf F]    destino: donantes|ecosistema|aviso
   python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
   python radar.py --self-check
@@ -203,14 +203,14 @@ def mensaje(d, para):
     if d.get("vigilar"):
         L += ["", "👀 <b>A vigilar</b>"]
         L += [f"📅 {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in d["vigilar"][:2]]
-    if para == "donantes":
-        L += ["", "📎 Informe completo en el PDF adjunto."]
+    L += ["", "📎 Informe completo en el PDF adjunto."]
     L += ["", f"<i>{PIE}</i>"]
     return "\n".join(L)
 
 
-def informe(d):
+def informe(d, para="donantes"):
     ev = d.get("evolutivo", {})
+    n = iter(range(1, 10))  # numeración de secciones: el ecosistema no lleva la de Maldita
     css = ("body{font-family:Arial,sans-serif;font-size:10.5pt;color:#111}h1{font-size:16pt;margin:0}"
            "h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%}"
            "td,th{border:1px solid #bbb;padding:3pt 5pt;text-align:left;vertical-align:top}th{background:#eee}"
@@ -224,10 +224,10 @@ def informe(d):
         H.append(f"<p><i>{e(', '.join(d['pendiente']))}: pendiente, se completará mañana.</i></p>")
     if d.get("tono"):
         H.append(f"<p>{e(d['tono'])}</p>")
-    H.append("<h2>1. De qué se habla: cinco hallazgos</h2><ol>")
+    H.append(f"<h2>{next(n)}. De qué se habla: cinco hallazgos</h2><ol>")
     H += [f"<li>{e(h['texto'])}</li>" for h in d.get("hallazgos", [])[:5]]
     H.append("</ol>")
-    H.append("<h2>2. Qué ha cambiado: evolutivo</h2>")
+    H.append(f"<h2>{next(n)}. Qué ha cambiado: evolutivo</h2>")
     if ev.get("comparado_con"):
         H.append(f"<p>Frente al informe del {e(fecha_larga(ev['comparado_con']))}. "
                  "Variación de cuota por bloque: ≥+50% → +2 · +25..50% → +1 · −20..+25% → 0 · −50..−20% → −1 · ≤−50% → −2.</p>")
@@ -242,14 +242,14 @@ def informe(d):
                  f"<td>{cel(t.get('digitales'))}</td><td>{cel(t.get('analogico'))}</td><td>{e(indicador(f))}</td></tr>")
     H.append("</table>")
     if d.get("marcos"):
-        H.append("<h2>3. Qué evidencia lo sostiene: marcos por tema</h2><table><tr><th>Tema</th><th>Marco dominante</th><th>Qué dice cada bloque</th><th>Fuente</th></tr>")
+        H.append(f"<h2>{next(n)}. Qué evidencia lo sostiene: marcos por tema</h2><table><tr><th>Tema</th><th>Marco dominante</th><th>Qué dice cada bloque</th><th>Fuente</th></tr>")
         H += [f"<tr><td>{e(m['tema'])}</td><td>{e(m['dominante'])}</td><td>{e(m.get('bloques', ''))}</td><td>{e(m.get('fuente', ''))}</td></tr>" for m in d["marcos"]]
         H.append("</table>")
     if d.get("clima"):
-        H.append(f"<h2>4. Clima y energía</h2><p>{e(d['clima'])}</p>")
-    m = d.get("maldita")
+        H.append(f"<h2>{next(n)}. Clima y energía</h2><p>{e(d['clima'])}</p>")
+    m = d.get("maldita") if para == "donantes" else None
     if m:
-        H.append(f"<h2>5. Desinformación</h2><p>{e(m['resumen'])}</p><ul>")
+        H.append(f"<h2>{next(n)}. Desinformación</h2><p>{e(m['resumen'])}</p><ul>")
         H += [f"<li>{e(n)}</li>" for n in m.get("narrativas", [])]
         H.append("</ul>")
         if m.get("claims"):
@@ -260,10 +260,13 @@ def informe(d):
             H.append("</ul>")
         H.append("<p><i>Fuente: Fundación Maldita.es</i></p>")
     if d.get("vigilar"):
-        H.append("<h2>6. A vigilar</h2><ul>")
+        H.append(f"<h2>{next(n)}. A vigilar</h2><ul>")
         H += [f"<li>{e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}</li>" for v in d["vigilar"]]
         H.append("</ul>")
-    H.append(f"<h2>Nota metodológica</h2><p>{e(d.get('metodologia', ''))}</p>")
+    meto = d.get("metodologia", "")
+    if para != "donantes":  # ecosistema: fuera la frase de la fuente de bulos
+        meto = " ".join(f for f in meto.replace(". ", ".\n").split("\n") if "Maldita" not in f)
+    H.append(f"<h2>Nota metodológica</h2><p>{e(meto)}</p>")
     H.append(f"<p class='pie'>{PIE}</p></body></html>")
     return "\n".join(H)
 
@@ -382,7 +385,7 @@ def self_check():
     hoy["maldita"] = {"resumen": "3 narrativas"}
     me, md = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes")
     assert "Maldita" not in me and "Maldita" in md and PIE in me
-    assert "<html>" in informe(hoy)
+    assert "<html>" in informe(hoy) and "Maldita" in informe(hoy) and "Maldita" not in informe(hoy, "ecosistema")
     import base64
     import tempfile
     from email.message import EmailMessage
@@ -406,7 +409,7 @@ def main():
     sp.add_parser("validar").add_argument("hoy")
     p = sp.add_parser("evolutivo"); p.add_argument("hoy"); p.add_argument("anterior")
     p = sp.add_parser("mensaje"); p.add_argument("hoy"); p.add_argument("para", choices=["ecosistema", "donantes"])
-    sp.add_parser("informe").add_argument("hoy")
+    p = sp.add_parser("informe"); p.add_argument("hoy"); p.add_argument("para", nargs="?", default="donantes", choices=["ecosistema", "donantes"])
     p = sp.add_parser("enviar"); p.add_argument("destino"); p.add_argument("--texto", required=True); p.add_argument("--pdf")
     p = sp.add_parser("adjuntos"); p.add_argument("raw"); p.add_argument("carpeta")
     a = ap.parse_args()
@@ -429,7 +432,7 @@ def main():
     elif a.cmd == "mensaje":
         print(mensaje(cargar(a.hoy), a.para))
     elif a.cmd == "informe":
-        print(informe(cargar(a.hoy)))
+        print(informe(cargar(a.hoy), a.para))
     elif a.cmd == "enviar":
         enviar(a.destino, Path(a.texto).read_text(encoding="utf8"), a.pdf)
 
