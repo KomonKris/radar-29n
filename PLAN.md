@@ -51,6 +51,12 @@ Diseño: `DISENO.md`. Objetivo: ensayo el miércoles 28-oct a las 12:00 y salida
 - 12:00 `trig_01QFPoTyz5NDAsrzUQ3mAkJ6`
 - 12:30 `trig_01Y36WBjnGbUFQpCok8tV9V2`
 - 13:00 final `trig_013Qj9DwdKdLsGDJczU9S3MA`
+- 13:30 respaldo `trig_016BTpEdJAJfZcupzVbMDCaF`. Creada el 28-oct porque la de las 13:00 no se disparó ese día y hubo que lanzarla a mano. La de las 12:00 salió 11 min tarde.
+
+**Ensayo del 28-oct** (`cse_01YBhMSWyGHg432UrZG1mCuh`, lanzado a mano a las 13:10): OK.
+- Onclusive vino de Gmail y Maldita de Drive (subió un CSV en vez del XLSX).
+- Salieron dos PDF y dos mensajes, con el evolutivo frente al 27.
+- Fallos corregidos en el commit 16603ab: nombres de narrativas que cambian de un día a otro y dan NUEVA/DESAPARECE falsos, y el base64 del histórico copiado a mano, que se cortó.
 
 El planificador añade unos minutos de margen: la primera pasada sale el 28-oct a las 12:06, 12:31 y 13:02. Se gestionan en https://claude.ai/code/routines.
 
