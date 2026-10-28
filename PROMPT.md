@@ -48,7 +48,7 @@ En la carpeta Drive `drive.datos`, busca un archivo llamado `enviado_HOY`. Si ex
 - **`/tmp/hoy.json`.** Escríbelo con el **mismo esquema** que `tests/2026-10-27.json` (ejemplo real con informe definitivo):
   - `volumen`: cifras de la portada.
   - `temas`: los 7 temas prioritarios de la tabla "Evolución de la conversación". `redes` y `digitales` en %, `analogico` en nº de piezas. Copia las cifras tal cual, con punto decimal.
-  - `narrativas_redes`: el % de cada narrativa del listado "Narrativas en redes".
+  - `narrativas_redes`: el % de cada narrativa del listado "Narrativas en redes". **Nombres estables:** si una narrativa ya está en `/tmp/anterior.json` con otro nombre parecido (p. ej. "Disturbios y orden público" frente a "Orden público y disturbios"), usa el nombre de ayer, o el evolutivo la marcará como NUEVA o DESAPARECE por error. Solo es NUEVA si de verdad no estaba ayer. Lo mismo para `temas`: los 7 nombres prioritarios, exactos.
   - `hallazgos`: los 5 "hallazgos del día", una frase cada uno con su cifra.
   - `traccion`: el "tema con mayor tracción".
   - `tono`: 1–2 frases sobre los atributos de la conversación.
@@ -74,6 +74,8 @@ En la carpeta Drive `drive.datos`, busca un archivo llamado `enviado_HOY`. Si ex
 
 ## 4. Evolutivo
 - En `drive.datos`, busca el `historico_AAAA-MM-DD.json` más reciente con fecha < HOY y descárgalo a `/tmp/anterior.json`. Si no hay ninguno, usa `-`.
+  - Haz **esto antes del paso 3**, para tener los nombres de ayer al extraer.
+  - Si `download_file_content` vuelca la respuesta a un archivo, decodifica ese archivo con python (`json.load` → `base64.b64decode(d["content"])`). Si viene en línea, guárdala con python desde el propio resultado. **Nunca copies el base64 a mano**: se corta.
 - Ejecuta `radar.py evolutivo /tmp/hoy.json /tmp/anterior.json`.
 - Sube `/tmp/hoy.json` a `drive.datos` como `historico_HOY.json`, con `contentMimeType` `application/json` y `disableConversionToGoogleType` = true.
 
