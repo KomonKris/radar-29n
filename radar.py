@@ -10,6 +10,7 @@ SCHEMA.md. Este script hace lo determinista:
   python radar.py mensaje <hoy.json> ecosistema|donantes  texto HTML de Telegram
   python radar.py informe <hoy.json>                      HTML del PDF de donantes
   python radar.py enviar <destino> --texto F [--pdf F]    destino: donantes|ecosistema|aviso
+  python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
   python radar.py --self-check
 
 `enviar` respeta config.json: con "ensayo": true todo va a aviso_chat_id.
@@ -325,6 +326,31 @@ def enviar(destino, texto, pdf=None):
     print(f"ok {destino} -> {chat}{' (ensayo)' if cfg.get('ensayo') else ''}")
 
 
+# --- gmail ----------------------------------------------------------------
+
+def adjuntos(raw_path, carpeta):
+    """`raw_path`: la salida de get_message con messageFormat RAW (JSON con "raw",
+    tal cual la vuelca la herramienta) o el base64url suelto. Guarda los adjuntos."""
+    import base64
+    import email
+    from email import policy
+    txt = Path(raw_path).read_text(encoding="utf8").strip()
+    if txt.startswith("{"):
+        txt = json.loads(txt)["raw"]
+    msg = email.message_from_bytes(base64.urlsafe_b64decode(txt + "=" * (-len(txt) % 4)), policy=policy.default)
+    out = Path(carpeta)
+    out.mkdir(parents=True, exist_ok=True)
+    nombres = []
+    for parte in msg.iter_attachments():
+        nombre = parte.get_filename()
+        if not nombre:
+            continue
+        nombre = Path(nombre).name  # nada de rutas que vengan en el correo
+        (out / nombre).write_bytes(parte.get_payload(decode=True))
+        nombres.append(nombre)
+    return nombres
+
+
 # --- self-check -----------------------------------------------------------
 
 def self_check():
@@ -357,6 +383,17 @@ def self_check():
     me, md = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes")
     assert "Maldita" not in me and "Maldita" in md and PIE in me
     assert "<html>" in informe(hoy)
+    import base64
+    import tempfile
+    from email.message import EmailMessage
+    m = EmailMessage()
+    m.set_content("hola")
+    m.add_attachment(b"%PDF-1.4 x", maintype="application", subtype="pdf", filename="../Informe_28-10-2026.pdf")
+    with tempfile.TemporaryDirectory() as tmp:
+        raw = Path(tmp, "raw.json")
+        raw.write_text(json.dumps({"raw": base64.urlsafe_b64encode(m.as_bytes()).decode().rstrip("=")}), encoding="utf8")
+        assert adjuntos(raw, Path(tmp, "a")) == ["Informe_28-10-2026.pdf"]
+        assert Path(tmp, "a", "Informe_28-10-2026.pdf").read_bytes() == b"%PDF-1.4 x"
     print("self-check ok")
 
 
@@ -371,7 +408,11 @@ def main():
     p = sp.add_parser("mensaje"); p.add_argument("hoy"); p.add_argument("para", choices=["ecosistema", "donantes"])
     sp.add_parser("informe").add_argument("hoy")
     p = sp.add_parser("enviar"); p.add_argument("destino"); p.add_argument("--texto", required=True); p.add_argument("--pdf")
+    p = sp.add_parser("adjuntos"); p.add_argument("raw"); p.add_argument("carpeta")
     a = ap.parse_args()
+    if a.cmd == "adjuntos":
+        print("\n".join(adjuntos(a.raw, a.carpeta)) or "(sin adjuntos)")
+        return
     if a.cmd == "pdftext":
         import pymupdf
         print("\n\f\n".join(pg.get_text() for pg in pymupdf.open(a.pdf)))

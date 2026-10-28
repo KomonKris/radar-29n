@@ -46,6 +46,7 @@ Es **automático del todo**: no hay revisión humana antes de publicar.
 - Onclusive: `Monitoring diario 29N/Onclusive (Kantar) - Radar conversación electoral/<MES>/`, archivo que contiene `_AAAAMMDD`.
 - Maldita: `Monitoring diario 29N/Maldita - Monitoreo desinformación/<MES>/`, `Maldita_MonitoreoElectoral_EG26_AAAA-MM-DD_manana.{docx,xlsx}`.
 - La subcarpeta del mes (OCTUBRE, NOVIEMBRE) se crea si no existe.
+- **Plan B, Gmail** (añadido el 28-oct, porque los proveedores mandan por email y no suben a Drive): si no está en Drive, se busca el correo del día en el buzón de Cris y se sacan los adjuntos con `get_message` RAW → `radar.py adjuntos`. Maldita tiene que poner a Cris en copia: el 28-oct solo lo recibió Gabriela.
 - El texto del PDF se extrae con **PyMuPDF**. `read_file_content` de Drive pierde las cifras de las tablas. Comprobado el 27-oct: PyMuPDF saca "Vivienda 6,2% · 378 / 10,6% · 154 / 4".
 - Claude convierte el texto en un JSON de cifras y lo valida: cuotas entre 0 y 100, totales que cuadran con la portada. Si no valida, se envía sin evolutivo y se avisa a Cris.
 
