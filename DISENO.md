@@ -25,7 +25,7 @@ Es **automático del todo**: no hay revisión humana antes de publicar.
 | 8 | PDF donantes | Propio, consolidado, 2-3 páginas, **neutro** (sin logo ni nombre de Komons) |
 | 8b | PDF ecosistema | **Sí lleva PDF** (cambio de Cris del 28-oct): el mismo que el de donantes sin la sección de Maldita ni su mención en la metodología. `radar.py informe <hoy> ecosistema` |
 | 9 | Evolutivo | Mide **volumen**: variación de cuota frente al informe anterior, por bloque. Nota del tema = media de los bloques con volumen suficiente. El marco dominante va aparte, como dato descriptivo. No se pide nada más a Onclusive |
-| 10 | Desinformación | **El sistema no publica en el canal de Desinformación Electoral.** Maldita solo entra en el PDF y en el mensaje de donantes |
+| 10 | Desinformación | **El sistema no publica en el canal de Desinformación Electoral.** Maldita solo entra en el PDF y en el mensaje de donantes, **sin nombrarla** (29-oct) |
 | 11 | Comparativa de bloques | Va (qué dice PP/Vox y qué dice la izquierda de cada marco), con nota al pie fija |
 | 12 | Plantilla | Una sola. Donantes = ecosistema + línea de Maldita + PDF |
 | 13 | Repo | Privado, en la cuenta/org **komonkris** (la crea Cris), `komonkris/radar-29n` |

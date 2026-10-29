@@ -5,6 +5,8 @@ Origen: reunión "Sincronización monitoring", 27-oct-2026, con Cris, Gabriela y
 - Notas y transcripción: https://docs.google.com/document/d/1vLWGRuUSPC09W4rwlbdknECiwRfJkKKstkcQgcumdNM
 - Contexto general de GTV: `../CLAUDE.md`
 
+> **Regla (29-oct, petición a Cris):** Maldita no se nombra en nada que salga (mensajes, PDF, Google Docs, grupos, entregables): ni Maldita.es, ni Maldita Hemeroteca, ni la fundación, ni enlaces suyos. Su contenido se usa sin atribuir, como "desinformación". El nombre solo vale internamente para localizar archivos. `radar.py` lo bloquea en `validar` y `enviar`.
+
 ## Fuentes (llegan cada día por email, con copia a Cris, Gabriela y Paula)
 | Proveedor | Qué manda | Hora | Formato |
 |---|---|---|---|

@@ -1,14 +1,14 @@
 """Radar 29N: evolutivo, mensajes y envío a Telegram.
 
 La extracción la hace Claude en la rutina: lee el PDF de Onclusive (texto vía
-`pdftext`) y el DOCX/XLSX de Maldita y escribe `hoy.json` con el esquema de
+`pdftext`) y el DOCX/XLSX de la fuente de bulos y escribe `hoy.json` con el esquema de
 SCHEMA.md. Este script hace lo determinista:
 
   python radar.py pdftext <onclusive.pdf>                 texto del PDF (PyMuPDF)
   python radar.py validar <hoy.json>                      sale 1 si no cuadra
   python radar.py evolutivo <hoy.json> <anterior.json|->  añade "evolutivo" a hoy.json
   python radar.py mensaje <hoy.json> ecosistema|donantes  texto HTML de Telegram
-  python radar.py informe <hoy.json> donantes|ecosistema  HTML del PDF (ecosistema: sin Maldita)
+  python radar.py informe <hoy.json> donantes|ecosistema  HTML del PDF (ecosistema: sin desinformación)
   python radar.py enviar <destino> --texto F [--pdf F]    destino: donantes|ecosistema|aviso
   python radar.py chats                                  ids de grupos (añade el bot y escribe algo antes)
   python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
@@ -48,6 +48,9 @@ def config():
 
 # --- validación -----------------------------------------------------------
 
+PROHIBIDO = "maldita"  # regla: la fuente de bulos no se nombra en ninguna salida
+
+
 def errores(d):
     e = []
     vol = d.get("volumen", {})
@@ -70,6 +73,8 @@ def errores(d):
             e.append(f"narrativas_redes.{n}={x} fuera de 0-100")
     if len(d.get("hallazgos", [])) == 0:
         e.append("sin hallazgos")
+    if PROHIBIDO in json.dumps(d, ensure_ascii=False).replace('"maldita":', "").lower():
+        e.append("menciona a Maldita: quita el nombre, sus enlaces y sus URLs")
     return e
 
 
@@ -200,7 +205,7 @@ def mensaje(d, para):
                 x += f"\n    💬 {e(m['bloques'])}"
             L.append(x)
     if para == "donantes" and d.get("maldita"):
-        L += ["", f"🚨 <b>Desinformación (Maldita)</b>", e(d["maldita"]["resumen"])]
+        L += ["", "🚨 <b>Desinformación</b>", e(d["maldita"]["resumen"])]
     if d.get("vigilar"):
         L += ["", "👀 <b>A vigilar</b>"]
         L += [f"📅 {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in d["vigilar"][:2]]
@@ -211,7 +216,7 @@ def mensaje(d, para):
 
 def informe(d, para="donantes"):
     ev = d.get("evolutivo", {})
-    n = iter(range(1, 10))  # numeración de secciones: el ecosistema no lleva la de Maldita
+    n = iter(range(1, 10))  # numeración de secciones: el ecosistema no lleva la de desinformación
     css = ("body{font-family:Arial,sans-serif;font-size:10.5pt;color:#111}h1{font-size:16pt;margin:0}"
            "h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%}"
            "td,th{border:1px solid #bbb;padding:3pt 5pt;text-align:left;vertical-align:top}th{background:#eee}"
@@ -256,17 +261,15 @@ def informe(d, para="donantes"):
         if m.get("claims"):
             H.append("<p>Claims del día:</p><ul>")
             for c in m["claims"]:
-                link = f" · <a href='{e(c['verificacion'])}'>verificación</a>" if c.get("verificacion") else ""
-                H.append(f"<li>{e(c['texto'])}{link}</li>")
+                H.append(f"<li>{e(c['texto'])}</li>")
             H.append("</ul>")
-        H.append("<p><i>Fuente: Fundación Maldita.es</i></p>")
     if d.get("vigilar"):
         H.append(f"<h2>{next(n)}. A vigilar</h2><ul>")
         H += [f"<li>{e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}</li>" for v in d["vigilar"]]
         H.append("</ul>")
     meto = d.get("metodologia", "")
     if para != "donantes":  # ecosistema: fuera la frase de la fuente de bulos
-        meto = " ".join(f for f in meto.replace(". ", ".\n").split("\n") if "Maldita" not in f)
+        meto = " ".join(f for f in meto.replace(". ", ".\n").split("\n") if not f.startswith("Desinformación:"))
     H.append(f"<h2>Nota metodológica</h2><p>{e(meto)}</p>")
     H.append(f"<p class='pie'>{PIE}</p></body></html>")
     return "\n".join(H)
@@ -314,6 +317,8 @@ def tg_call(metodo, campos, archivo=None):
 
 
 def enviar(destino, texto, pdf=None):
+    if PROHIBIDO in texto.lower():
+        sys.exit("[error] el mensaje menciona a Maldita: no se envía")
     cfg = config()
     chat, hilo = destino_chat(destino, cfg)
     if cfg.get("ensayo") and destino != "aviso":
@@ -383,10 +388,16 @@ def self_check():
     mal["temas"]["Vivienda"]["redes"] = 140
     assert errores(mal)
     hoy["evolutivo"] = evolutivo(hoy, base)
-    hoy["maldita"] = {"resumen": "3 narrativas"}
+    hoy["maldita"] = {"resumen": "3 narrativas", "claims": [{"texto": "c", "verificacion": "https://x"}]}
+    hoy["metodologia"] = "Onclusive: 6.000 menciones. Desinformación: 109 fuentes."
     me, md = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes")
-    assert "Maldita" not in me and "Maldita" in md and PIE in me
-    assert "<html>" in informe(hoy) and "Maldita" in informe(hoy) and "Maldita" not in informe(hoy, "ecosistema")
+    assert "3 narrativas" not in me and "3 narrativas" in md and PIE in me
+    assert "109 fuentes" in informe(hoy) and "109 fuentes" not in informe(hoy, "ecosistema")
+    assert "3 narrativas" not in informe(hoy, "ecosistema")
+    assert all(PROHIBIDO not in x.lower() for x in (me, md, informe(hoy), informe(hoy, "ecosistema")))
+    assert not errores(hoy), errores(hoy)
+    assert errores(dict(hoy, maldita={"resumen": "según Maldita.es"}))
+    assert errores(dict(hoy, metodologia="Maldita Hemeroteca"))
     import base64
     import tempfile
     from email.message import EmailMessage
