@@ -1,5 +1,5 @@
 {
-  "ensayo": true,
+  "ensayo": false,
   "telegram": {
     "bot": "@radar29n_bot",
     "aviso_chat_id": 1871989485,

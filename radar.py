@@ -10,6 +10,7 @@ SCHEMA.md. Este script hace lo determinista:
   python radar.py mensaje <hoy.json> ecosistema|donantes  texto HTML de Telegram
   python radar.py informe <hoy.json> donantes|ecosistema  HTML del PDF (ecosistema: sin Maldita)
   python radar.py enviar <destino> --texto F [--pdf F]    destino: donantes|ecosistema|aviso
+  python radar.py chats                                  ids de grupos (añade el bot y escribe algo antes)
   python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
   python radar.py --self-check
 
@@ -412,7 +413,14 @@ def main():
     p = sp.add_parser("informe"); p.add_argument("hoy"); p.add_argument("para", nargs="?", default="donantes", choices=["ecosistema", "donantes"])
     p = sp.add_parser("enviar"); p.add_argument("destino"); p.add_argument("--texto", required=True); p.add_argument("--pdf")
     p = sp.add_parser("adjuntos"); p.add_argument("raw"); p.add_argument("carpeta")
+    sp.add_parser("chats")
     a = ap.parse_args()
+    if a.cmd == "chats":  # ids de los grupos donde está el bot, para config.json
+        for u in tg_call("getUpdates", {})["result"]:
+            m = u.get("message") or u.get("my_chat_member") or u.get("channel_post") or {}
+            c = m.get("chat", {})
+            print(c.get("id"), c.get("type"), c.get("title"), m.get("message_thread_id") or "")
+        return
     if a.cmd == "adjuntos":
         print("\n".join(adjuntos(a.raw, a.carpeta)) or "(sin adjuntos)")
         return
