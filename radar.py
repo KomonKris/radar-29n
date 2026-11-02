@@ -157,6 +157,15 @@ def evolutivo(hoy, ant):
     return {"comparado_con": (ant or {}).get("fecha"), "filas": filas}
 
 
+def orden(f):
+    """Nuevas primero, luego de más subida a más bajada, al final las que desaparecen."""
+    return {"NUEVA": -9, "DESAPARECE": 9}.get(f["estado"], -(f["nota"] or 0))
+
+
+def se_mueve(ev):
+    return sorted((f for f in ev if f["estado"] in ("NUEVA", "DESAPARECE") or (f["nota"] or 0) != 0), key=orden)
+
+
 def indicador(f):
     if f["nota"] is None:
         return {"base": "base", "poco dato": "poco dato"}.get(f["estado"], f["estado"])
@@ -200,9 +209,7 @@ def mensaje(d, para):
     t = d.get("traccion")
     if t:
         L += ["", f"🔥 <b>Más tracción:</b> {e(t)}" + (f" · {emoji_ev(ev[t])}" if t in ev else "")]
-    # orden: nuevas, luego de más subida a más bajada, y al final las que desaparecen
-    mov = sorted((f for f in ev.values() if f["estado"] in ("NUEVA", "DESAPARECE") or (f["nota"] or 0) != 0),
-                 key=lambda f: {"NUEVA": -9, "DESAPARECE": 9}.get(f["estado"], -(f["nota"] or 0)))
+    mov = se_mueve(ev.values())
     if mov:
         L += ["", "📊 <b>Qué se mueve desde ayer</b>"]
         L += [f"{emoji_ev(f)} · {e(f['tema'])}" for f in mov]
@@ -237,9 +244,24 @@ def informe(d, para="donantes"):
          f"{v['redes']:,} menciones en redes · {v['digitales']:,} piezas digitales · {v['analogico']} piezas analógicas</p>".replace(",", ".")]
     if d.get("pendiente"):
         H.append(f"<p><i>{e(', '.join(d['pendiente']))}: pendiente, se completará mañana.</i></p>")
+    H.append("<h2>Resumen</h2>")
     if d.get("tono"):
-        H.append(f"<p>{e(d['tono'])}</p>")
-    H.append(f"<h2>{next(n)}. De qué se habla: cinco hallazgos</h2><ol>")
+        H.append(f"<p><b>Cómo está la conversación.</b> {e(d['tono'])}</p>")
+    if d.get("traccion"):
+        H.append(f"<p><b>Más tracción.</b> {e(d['traccion'])}</p>")
+    mov = se_mueve(ev.get("filas", []))
+    if mov:
+        H.append("<p><b>Qué se mueve desde ayer</b></p><ul>")
+        H += [f"<li>{e(indicador(f).lower() if f['nota'] is None else indicador(f))} · {e(f['tema'])}</li>" for f in mov]
+        H.append("</ul>")
+    if para == "donantes" and d.get("maldita"):
+        H.append(f"<p><b>Desinformación.</b> {e(d['maldita']['resumen'])}</p>")
+    if d.get("vigilar"):
+        H.append("<p><b>A vigilar</b></p><ul>")
+        H += [f"<li>{e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}</li>" for v in d["vigilar"][:3]]
+        H.append("</ul>")
+    # página aparte: Google Docs respeta page-break-before al importar el HTML
+    H.append(f"<h2 style='page-break-before:always'>{next(n)}. De qué se habla: cinco hallazgos</h2><ol>")
     H += [f"<li>{e(h['texto'])}</li>" for h in d.get("hallazgos", [])[:5]]
     H.append("</ol>")
     H.append(f"<h2>{next(n)}. Qué ha cambiado: evolutivo</h2>")
@@ -249,7 +271,7 @@ def informe(d, para="donantes"):
     else:
         H.append("<p>Primer informe: línea base, sin variación.</p>")
     H.append("<table><tr><th>Tema</th><th>Redes %</th><th>Digitales %</th><th>Analógico</th><th>Evolutivo</th></tr>")
-    for f in ev.get("filas", []):
+    for f in sorted(ev.get("filas", []), key=orden):
         t = d["temas"].get(f["tema"], {})
         r = d.get("narrativas_redes", {}).get(f["tema"]) if f.get("narrativa") else t.get("redes")
         cel = lambda x: "—" if x is None else e(x)
@@ -407,6 +429,11 @@ def self_check():
     assert not any(nombra(x) for x in (me, md, informe(hoy), informe(hoy, "ecosistema")))
     q = md[md.index("Qué se mueve"):md.index("Marcos") if "Marcos" in md else None]
     assert q.index("Encuestas") < q.index("Vivienda") < q.index("Fraude") < q.index("Brasil"), q
+    for x in (informe(hoy), informe(hoy, "ecosistema")):
+        r, t = x[x.index("Resumen"):x.index("page-break")], x[x.index("<table>"):]
+        assert r.index("Encuestas") < r.index("Vivienda") < r.index("Fraude") < r.index("Brasil"), r
+        assert t.index("Encuestas") < t.index("Vivienda") < t.index("Fraude") < t.index("Brasil"), t
+    assert "3 narrativas" in informe(hoy)[:informe(hoy).index("page-break")]
     assert not errores(hoy), errores(hoy)
     assert errores(dict(hoy, maldita={"resumen": "según Maldita.es"}))
     assert errores(dict(hoy, metodologia="Maldita Hemeroteca"))
