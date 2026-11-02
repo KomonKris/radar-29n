@@ -31,9 +31,9 @@
   "Pacto PP-Vox en el Senado": 2.8
  },
  "marcos": [
-  {"tema": "Vivienda", "dominante": "Reproche entre partidos más que contraste de propuestas", "bloques": "PSOE acusa a Feijóo de no tener propuestas; PP promete un millón de viviendas; Podemos pide bajar alquileres", "fuente": "Onclusive, p. 2 y 8"},
-  {"tema": "Voto exterior", "dominante": "De trámite administrativo a argumento de sospecha (Ley de nietos)", "bloques": "Vox lo califica de «fraude electoral» (COPE); el Gobierno defiende el procedimiento ante el Supremo", "fuente": "Onclusive, p. 3 y 8"},
-  {"tema": "Orden público", "dominante": "Los disturbios de Barcelona como eje de campaña contra el Gobierno", "bloques": "PP responsabiliza a Sánchez; Frente Amplio, objeto de ataques sin verificar", "fuente": "Onclusive, p. 3 y 7"}
+  {"tema": "Vivienda", "dominante": "Reproche entre partidos más que contraste de propuestas", "bloques": "PSOE acusa a Feijóo de no tener propuestas; PP promete un millón de viviendas; Podemos pide bajar alquileres", "fuente": "p. 2 y 8"},
+  {"tema": "Voto exterior", "dominante": "De trámite administrativo a argumento de sospecha (Ley de nietos)", "bloques": "Vox lo califica de «fraude electoral» (COPE); el Gobierno defiende el procedimiento ante el Supremo", "fuente": "p. 3 y 8"},
+  {"tema": "Orden público", "dominante": "Los disturbios de Barcelona como eje de campaña contra el Gobierno", "bloques": "PP responsabiliza a Sánchez; Frente Amplio, objeto de ataques sin verificar", "fuente": "p. 3 y 7"}
  ],
  "clima": "Clima y energía no superan el 0,3% de las menciones en redes. El clima aparece en digitales (5,2%) por el proceso judicial de la DANA y las protestas agrarias; la energía solo en prensa económica.",
  "maldita": {
@@ -44,7 +44,7 @@
    "El Gobierno penaliza a propietarios para controlar el alquiler (sube: de 3 a 4)"
   ],
   "claims": [
-   {"texto": "Musulmanes nacionalizados votan en el consulado de Bélgica para el 29N", "verificacion": "https://maldita.es/desinfo/20261022/musulmanes-a-los-que-el-gobierno-ha-dado-pasaporte-espanol-estan-votando-en-el-consulado-de-belgica-para-las-elecciones-generales-del-29-de-noviembre/"},
+   {"texto": "Musulmanes nacionalizados votan en el consulado de Bélgica para el 29N"},
    {"texto": "El Supremo separará las papeletas de los nacionalizados por la ley de nietos (TSANoticias, Telegram)"}
   ]
  },
@@ -52,5 +52,5 @@
   {"fecha": "11/11", "texto": "Huelga general por la vivienda"},
   {"fecha": "19/11", "texto": "Último día para solicitar el voto por correo"}
  ],
- "metodologia": "Redes y medios digitales: Onclusive Social, búsqueda «Elecciones 29N» (7.600 registros; 6.094 menciones en redes y 1.450 piezas digitales tras eliminar duplicados). Analógico: clipping Onclusive de prensa, radio y TV (34 piezas). Desinformación: Fundación Maldita.es, 109 fuentes en X, Telegram, Instagram, Facebook, TikTok y YouTube. Evolutivo: cálculo propio sobre la cuota de cada tema por bloque."
+ "metodologia": "Redes y medios digitales: social listening, búsqueda «Elecciones 29N» (7.600 registros; 6.094 menciones en redes y 1.450 piezas digitales tras eliminar duplicados). Analógico: clipping de prensa, radio y TV (34 piezas). Desinformación: 109 fuentes en X, Telegram, Instagram, Facebook, TikTok y YouTube. Evolutivo: cálculo propio sobre la cuota de cada tema por bloque."
 }

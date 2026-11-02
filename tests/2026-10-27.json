@@ -33,10 +33,10 @@
   "Voto exterior": 2.9
  },
  "marcos": [
-  {"tema": "Proceso electoral", "dominante": "Confianza en el recuento en disputa: «aceptar el resultado» y «pucherazo»", "bloques": "Herrera (COPE) condiciona aceptar el resultado; Vox llama a la Ley de Nietos «fraude electoral»; Frente Amplio responde «la democracia no se acepta a la carta»", "fuente": "Onclusive, p. 1, 7 y 9"},
-  {"tema": "Vivienda", "dominante": "Estable en redes (6,5%) y primer tema analógico (9 de 19) por la huelga del 11-N", "bloques": "PSOE acusa a Feijóo de no tener propuestas; Podemos pide «frenar a los rentistas y fondos buitre»", "fuente": "Onclusive, p. 2 y 7"},
-  {"tema": "Orden público", "dominante": "De Barcelona a Bilbao, usado ya para movilizar", "bloques": "PP condena la «izquierda violenta» y garantiza orden; Vox pide «movilización masiva»", "fuente": "Onclusive, p. 7 y 8"},
-  {"tema": "Pensiones", "dominante": "Primera propuesta programática con volumen (817 menciones)", "bloques": "PSOE propone blindarlas en la Constitución; Frente Amplio, pensión mínima igual al SMI", "fuente": "Onclusive, p. 8"}
+  {"tema": "Proceso electoral", "dominante": "Confianza en el recuento en disputa: «aceptar el resultado» y «pucherazo»", "bloques": "Herrera (COPE) condiciona aceptar el resultado; Vox llama a la Ley de Nietos «fraude electoral»; Frente Amplio responde «la democracia no se acepta a la carta»", "fuente": "p. 1, 7 y 9"},
+  {"tema": "Vivienda", "dominante": "Estable en redes (6,5%) y primer tema analógico (9 de 19) por la huelga del 11-N", "bloques": "PSOE acusa a Feijóo de no tener propuestas; Podemos pide «frenar a los rentistas y fondos buitre»", "fuente": "p. 2 y 7"},
+  {"tema": "Orden público", "dominante": "De Barcelona a Bilbao, usado ya para movilizar", "bloques": "PP condena la «izquierda violenta» y garantiza orden; Vox pide «movilización masiva»", "fuente": "p. 7 y 8"},
+  {"tema": "Pensiones", "dominante": "Primera propuesta programática con volumen (817 menciones)", "bloques": "PSOE propone blindarlas en la Constitución; Frente Amplio, pensión mínima igual al SMI", "fuente": "p. 8"}
  ],
  "clima": "Clima (0,3% en redes, 0,7% en digitales) y energía (0,6% y 1,9%) siguen fuera de la conversación. La energía aparece en digitales por el decreto de centros de datos.",
  "maldita": {
@@ -47,7 +47,7 @@
    "El Gobierno penaliza a propietarios para controlar el alquiler (sube: de 3 a 4)"
   ],
   "claims": [
-   {"texto": "Musulmanes nacionalizados votan en el consulado de Bélgica para el 29N", "verificacion": "https://maldita.es/desinfo/20261022/musulmanes-a-los-que-el-gobierno-ha-dado-pasaporte-espanol-estan-votando-en-el-consulado-de-belgica-para-las-elecciones-generales-del-29-de-noviembre/"},
+   {"texto": "Musulmanes nacionalizados votan en el consulado de Bélgica para el 29N"},
    {"texto": "El Supremo separará las papeletas de los nacionalizados por la ley de nietos (TSANoticias, Telegram)"},
    {"texto": "El Supremo investigará a Pedro Sánchez por alta traición (Espíritu Templario, Telegram)"}
   ]
@@ -58,5 +58,5 @@
   {"fecha": "12/11", "texto": "Decretos de vivienda a la Diputación Permanente"},
   {"fecha": "19/11", "texto": "Último día para solicitar el voto por correo"}
  ],
- "metodologia": "Redes y medios digitales: Onclusive Social, extracción «Elecciones 29N» del 26/10 09:00 al 27/10 08:59 (23.178 registros; 18.544 menciones en redes y 4.390 piezas digitales tras eliminar duplicados). Analógico: clipping Onclusive de 19 piezas (6 de prensa, 7 de radio, 6 de TV). Desinformación: Fundación Maldita.es, 109 fuentes en X, Telegram, Instagram, Facebook, TikTok y YouTube. Evolutivo: cálculo propio sobre la cuota de cada tema por bloque frente al informe anterior; Onclusive advierte que la comparación 26/10-27/10 es orientativa (periodos solapados 5 h 45 min, volumen triplicado y cambio de diccionario)."
+ "metodologia": "Redes y medios digitales: social listening, extracción «Elecciones 29N» del 26/10 09:00 al 27/10 08:59 (23.178 registros; 18.544 menciones en redes y 4.390 piezas digitales tras eliminar duplicados). Analógico: clipping de 19 piezas (6 de prensa, 7 de radio, 6 de TV). Desinformación: 109 fuentes en X, Telegram, Instagram, Facebook, TikTok y YouTube. Evolutivo: cálculo propio sobre la cuota de cada tema por bloque frente al informe anterior; el informe de origen advierte que la comparación 26/10-27/10 es orientativa (periodos solapados 5 h 45 min, volumen triplicado y cambio de diccionario)."
 }

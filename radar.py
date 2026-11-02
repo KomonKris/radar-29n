@@ -48,7 +48,12 @@ def config():
 
 # --- validación -----------------------------------------------------------
 
-PROHIBIDO = "maldita"  # regla: la fuente de bulos no se nombra en ninguna salida
+PROHIBIDO = ("maldita", "onclusive", "kantar")  # regla: los proveedores no se nombran en ninguna salida
+
+
+def nombra(texto):
+    t = texto.lower()
+    return next((p for p in PROHIBIDO if p in t), None)
 
 
 def errores(d):
@@ -73,8 +78,10 @@ def errores(d):
             e.append(f"narrativas_redes.{n}={x} fuera de 0-100")
     if len(d.get("hallazgos", [])) == 0:
         e.append("sin hallazgos")
-    if PROHIBIDO in json.dumps(d, ensure_ascii=False).replace('"maldita":', "").lower():
-        e.append("menciona a Maldita: quita el nombre, sus enlaces y sus URLs")
+    sale = {k: v for k, v in d.items() if k != "fuentes"}  # "fuentes" = nombres de archivo, uso interno
+    p = nombra(json.dumps(sale, ensure_ascii=False).replace('"maldita":', ""))
+    if p:
+        e.append(f"menciona a {p.capitalize()}: quita el nombre, sus enlaces y sus URLs")
     return e
 
 
@@ -193,7 +200,9 @@ def mensaje(d, para):
     t = d.get("traccion")
     if t:
         L += ["", f"🔥 <b>Más tracción:</b> {e(t)}" + (f" · {emoji_ev(ev[t])}" if t in ev else "")]
-    mov = [f for f in ev.values() if f["estado"] in ("NUEVA", "DESAPARECE") or (f["nota"] or 0) != 0]
+    # orden: nuevas, luego de más subida a más bajada, y al final las que desaparecen
+    mov = sorted((f for f in ev.values() if f["estado"] in ("NUEVA", "DESAPARECE") or (f["nota"] or 0) != 0),
+                 key=lambda f: {"NUEVA": -9, "DESAPARECE": 9}.get(f["estado"], -(f["nota"] or 0)))
     if mov:
         L += ["", "📊 <b>Qué se mueve desde ayer</b>"]
         L += [f"{emoji_ev(f)} · {e(f['tema'])}" for f in mov]
@@ -317,8 +326,9 @@ def tg_call(metodo, campos, archivo=None):
 
 
 def enviar(destino, texto, pdf=None):
-    if PROHIBIDO in texto.lower():
-        sys.exit("[error] el mensaje menciona a Maldita: no se envía")
+    p = nombra(texto) if destino != "aviso" else None  # los avisos solo los lee Cris
+    if p:
+        sys.exit(f"[error] el mensaje menciona a {p.capitalize()}: no se envía")
     cfg = config()
     chat, hilo = destino_chat(destino, cfg)
     if cfg.get("ensayo") and destino != "aviso":
@@ -389,15 +399,20 @@ def self_check():
     assert errores(mal)
     hoy["evolutivo"] = evolutivo(hoy, base)
     hoy["maldita"] = {"resumen": "3 narrativas", "claims": [{"texto": "c", "verificacion": "https://x"}]}
-    hoy["metodologia"] = "Onclusive: 6.000 menciones. Desinformación: 109 fuentes."
+    hoy["metodologia"] = "Conversación: 6.000 menciones. Desinformación: 109 fuentes."
     me, md = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes")
     assert "3 narrativas" not in me and "3 narrativas" in md and PIE in me
     assert "109 fuentes" in informe(hoy) and "109 fuentes" not in informe(hoy, "ecosistema")
     assert "3 narrativas" not in informe(hoy, "ecosistema")
-    assert all(PROHIBIDO not in x.lower() for x in (me, md, informe(hoy), informe(hoy, "ecosistema")))
+    assert not any(nombra(x) for x in (me, md, informe(hoy), informe(hoy, "ecosistema")))
+    q = md[md.index("Qué se mueve"):md.index("Marcos") if "Marcos" in md else None]
+    assert q.index("Encuestas") < q.index("Vivienda") < q.index("Fraude") < q.index("Brasil"), q
     assert not errores(hoy), errores(hoy)
     assert errores(dict(hoy, maldita={"resumen": "según Maldita.es"}))
     assert errores(dict(hoy, metodologia="Maldita Hemeroteca"))
+    assert errores(dict(hoy, metodologia="Onclusive: 6.000 menciones"))
+    assert errores(dict(hoy, marcos=[{"tema": "Vivienda", "dominante": "x", "fuente": "Onclusive, p. 2"}]))
+    assert not errores(dict(hoy, fuentes={"onclusive": "ONCLUSIVE_27-10-2026.pdf"}))
     import base64
     import tempfile
     from email.message import EmailMessage
