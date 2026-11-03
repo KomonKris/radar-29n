@@ -7,9 +7,10 @@ SCHEMA.md. Este script hace lo determinista:
   python radar.py pdftext <onclusive.pdf>                 texto del PDF (PyMuPDF)
   python radar.py validar <hoy.json>                      sale 1 si no cuadra
   python radar.py evolutivo <hoy.json> <anterior.json|->  añade "evolutivo" a hoy.json
-  python radar.py mensaje <hoy.json> ecosistema|donantes  texto HTML de Telegram
-  python radar.py informe <hoy.json> donantes|ecosistema  HTML del PDF (ecosistema: sin desinformación)
-  python radar.py enviar <destino> --texto F [--pdf F]    destino: donantes|ecosistema|aviso
+  python radar.py mensaje <hoy.json> ecosistema|desinformacion|donantes  texto HTML de Telegram
+  python radar.py informe <hoy.json>                      HTML del PDF de donantes
+  python radar.py desbrandear <in.pdf> <out.pdf>          quita logo, Komons y proveedor del PDF del proveedor
+  python radar.py enviar <destino> --texto F [--pdf F]... destino: donantes|ecosistema|desinformacion|aviso
   python radar.py chats                                  ids de grupos (añade el bot y escribe algo antes)
   python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
   python radar.py --self-check
@@ -54,6 +55,71 @@ PROHIBIDO = ("maldita", "onclusive", "kantar")  # regla: los proveedores no se n
 def nombra(texto):
     t = texto.lower()
     return next((p for p in PROHIBIDO if p in t), None)
+
+
+# --- desbrandear el PDF del proveedor --------------------------------------
+
+MARCAS = PROHIBIDO + ("komons", "kolecctive")  # en un PDF tampoco puede quedar el nombre del cliente
+# (frase, reemplazo), de más larga a más corta. El reemplazo no debe ser más ancho que la frase.
+REEMPLAZOS = [("komons.", ""), ("· Cliente: Komons Kolecctive", ""), ("Cliente: Komons Kolecctive", ""), ("Komons Kolecctive", ""),
+              ("· Komons ·", "·"), ("con Komons.", ""), ("clipping de Onclusive", "clipping"),
+              ("dossier Onclusive", "dossier"), ("etiquetas de Onclusive", "etiquetas de la fuente"),
+              ("de Onclusive", "de la fuente")]
+GENERICOS = {"onclusive": "la fuente", "kantar": "la fuente", "maldita": "la fuente", "komons": "", "kolecctive": ""}
+
+
+def marcas_en(pdf):
+    """Marcas que quedan en un PDF: texto, metadatos y URLs de enlaces."""
+    import pymupdf
+    doc = pymupdf.open(pdf)
+    partes = [pg.get_text() for pg in doc] + [str(v) for v in doc.metadata.values()]
+    partes += [lk.get("uri", "") for pg in doc for lk in pg.get_links()]
+    return sorted({m for m in MARCAS if m in " ".join(partes).lower()})
+
+
+def desbrandear(src, dst):
+    """Quita logos, textos de marca y metadatos del PDF del proveedor. Sale 1 si queda alguna marca."""
+    import pymupdf
+    doc = pymupdf.open(src)
+
+    def estilo(pg, r):
+        for b in pg.get_text("dict", clip=r)["blocks"]:
+            for ln in b.get("lines", []):
+                for s in ln["spans"]:
+                    return s["size"], pymupdf.sRGB_to_pdf(s["color"]), s["origin"]
+        return 8, (0, 0, 0), (r.x0, r.y1)
+
+    def quitar(pg, frase, repl):
+        hits = pg.search_for(frase)
+        nuevos = []
+        for r in hits:
+            tam, col, origen = estilo(pg, r)
+            nuevos.append((repl, (r.x0, origen[1]), tam, col))
+            pg.add_redact_annot(r, fill=False)
+        if hits:  # una frase por pasada: al quitarla desaparecen las coincidencias más cortas
+            pg.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
+        for txt, punto, tam, col in nuevos:  # el texto nuevo va aparte: el de la anotación se encoge hasta ser ilegible
+            if txt:
+                pg.insert_text(punto, txt, fontname="helv", fontsize=tam, color=col)
+
+    for pg in doc:
+        for x in pg.get_images(full=True):  # logo: imagen pequeña en la cabecera
+            r = pg.get_image_bbox(x)
+            if r.y1 < 120 and r.width < 250 and r.height < 80:
+                pg.add_redact_annot(r, fill=False)
+                pg.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
+        for frase, repl in REEMPLAZOS:
+            quitar(pg, frase, repl)
+        for w, repl in GENERICOS.items():
+            quitar(pg, w, repl)
+            quitar(pg, w.capitalize(), repl)
+    doc.set_metadata({})
+    doc.del_xml_metadata()
+    doc.save(dst, garbage=4, deflate=True)
+    quedan = marcas_en(dst)
+    if quedan:
+        sys.exit(f"[error] el PDF aún menciona: {', '.join(quedan)}")
+    print(f"ok {dst}")
 
 
 def errores(d):
@@ -194,7 +260,7 @@ def emoji_ev(f):
     return {2: "🚀 +2", 1: "📈 +1", 0: "➖ 0", -1: "📉 −1", -2: "🔻 −2"}[f["nota"]]
 
 
-def mensaje(d, para):
+def _monitoreo(d):
     ev = {f["tema"]: f for f in d.get("evolutivo", {}).get("filas", [])}
     falta = d.get("pendiente", [])
     L = [f"🗳️ <b>Radar 29N · {fecha_larga(d['fecha'])}</b>",
@@ -220,19 +286,45 @@ def mensaje(d, para):
             if m.get("bloques"):
                 x += f"\n    💬 {e(m['bloques'])}"
             L.append(x)
-    if para == "donantes" and d.get("maldita"):
-        L += ["", "🚨 <b>Desinformación</b>", e(d["maldita"]["resumen"])]
     if d.get("vigilar"):
         L += ["", "👀 <b>A vigilar</b>"]
         L += [f"📅 {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in d["vigilar"][:2]]
-    L += ["", "📎 Informe completo en el PDF adjunto."]
-    L += ["", f"<i>{PIE}</i>"]
-    return "\n".join(L)
+    return L
 
 
-def informe(d, para="donantes"):
+def _desinformacion(d):
+    """Mensaje dedicado de desinformación: más extenso que el resumen del monitoreo. [] si no hay."""
+    m = d.get("maldita")
+    if not m:
+        return []
+    L = [f"🚨 <b>Desinformación electoral · {fecha_larga(d['fecha'])}</b>", e(m["resumen"])]
+    if m.get("narrativas"):
+        L += ["", "📌 <b>Narrativas activas</b>"] + [f"▪️ {e(n)}" for n in m["narrativas"]]
+    if m.get("claims"):
+        L += ["", "🧾 <b>Afirmaciones en circulación hoy</b>"] + [f"▫️ {e(c['texto'])}" for c in m["claims"]]
+    if m.get("vigilar"):
+        L += ["", "👀 <b>A vigilar en desinformación</b>"]
+        L += [f"📅 {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in m["vigilar"]]
+    return L
+
+
+def mensaje(d, para):
+    """ecosistema = monitoreo · desinformacion = mensaje dedicado · donantes = los dos pegados."""
+    if para == "desinformacion":
+        des = _desinformacion(d)
+        return "\n".join(des + ["", f"<i>{PIE}</i>"]) if des else ""  # "" = sin bulos hoy: no se envía
+    L = _monitoreo(d)
+    if para == "donantes":
+        des = _desinformacion(d)
+        L += ([""] + des if des else []) + ["", "📎 Informes completos en los PDF adjuntos."]
+    else:
+        L += ["", "📎 Informe completo en el PDF adjunto."]
+    return "\n".join(L +["", f"<i>{PIE}</i>"])
+
+
+def informe(d):
     ev = d.get("evolutivo", {})
-    n = iter(range(1, 10))  # numeración de secciones: el ecosistema no lleva la de desinformación
+    n = iter(range(1, 10))  # numeración de secciones
     css = ("body{font-family:Arial,sans-serif;font-size:10.5pt;color:#111}h1{font-size:16pt;margin:0}"
            "h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%}"
            "td,th{border:1px solid #bbb;padding:3pt 5pt;text-align:left;vertical-align:top}th{background:#eee}"
@@ -254,7 +346,7 @@ def informe(d, para="donantes"):
         H.append("<p><b>Qué se mueve desde ayer</b></p><ul>")
         H += [f"<li>{e(indicador(f).lower() if f['nota'] is None else indicador(f))} · {e(f['tema'])}</li>" for f in mov]
         H.append("</ul>")
-    if para == "donantes" and d.get("maldita"):
+    if d.get("maldita"):
         H.append(f"<p><b>Desinformación.</b> {e(d['maldita']['resumen'])}</p>")
     if d.get("vigilar"):
         H.append("<p><b>A vigilar</b></p><ul>")
@@ -279,12 +371,12 @@ def informe(d, para="donantes"):
                  f"<td>{cel(t.get('digitales'))}</td><td>{cel(t.get('analogico'))}</td><td>{e(indicador(f))}</td></tr>")
     H.append("</table>")
     if d.get("marcos"):
-        H.append(f"<h2>{next(n)}. Qué evidencia lo sostiene: marcos por tema</h2><table><tr><th>Tema</th><th>Marco dominante</th><th>Qué dice cada bloque</th><th>Fuente</th></tr>")
-        H += [f"<tr><td>{e(m['tema'])}</td><td>{e(m['dominante'])}</td><td>{e(m.get('bloques', ''))}</td><td>{e(m.get('fuente', ''))}</td></tr>" for m in d["marcos"]]
+        H.append(f"<h2>{next(n)}. Qué evidencia lo sostiene: marcos por tema</h2><table><tr><th>Tema</th><th>Marco dominante</th><th>Qué dice cada bloque</th></tr>")
+        H += [f"<tr><td>{e(m['tema'])}</td><td>{e(m['dominante'])}</td><td>{e(m.get('bloques', ''))}</td></tr>" for m in d["marcos"]]
         H.append("</table>")
     if d.get("clima"):
         H.append(f"<h2>{next(n)}. Clima y energía</h2><p>{e(d['clima'])}</p>")
-    m = d.get("maldita") if para == "donantes" else None
+    m = d.get("maldita")
     if m:
         H.append(f"<h2>{next(n)}. Desinformación</h2><p>{e(m['resumen'])}</p><ul>")
         H += [f"<li>{e(n)}</li>" for n in m.get("narrativas", [])]
@@ -298,10 +390,7 @@ def informe(d, para="donantes"):
         H.append(f"<h2>{next(n)}. A vigilar</h2><ul>")
         H += [f"<li>{e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}</li>" for v in d["vigilar"]]
         H.append("</ul>")
-    meto = d.get("metodologia", "")
-    if para != "donantes":  # ecosistema: fuera la frase de la fuente de bulos
-        meto = " ".join(f for f in meto.replace(". ", ".\n").split("\n") if not f.startswith("Desinformación:"))
-    H.append(f"<h2>Nota metodológica</h2><p>{e(meto)}</p>")
+    H.append(f"<h2>Nota metodológica</h2><p>{e(d.get('metodologia', ''))}</p>")
     H.append(f"<p class='pie'>{PIE}</p></body></html>")
     return "\n".join(H)
 
@@ -314,10 +403,10 @@ def destino_chat(destino, cfg):
         return tg["aviso_chat_id"], None
     if destino == "donantes":
         return tg["donantes_chat_id"], None
-    if destino == "ecosistema":
+    if destino in ("ecosistema", "desinformacion"):
         if not tg.get("ecosistema_chat_id"):
             sys.exit("[error] ecosistema_chat_id vacío en config.json")
-        return tg["ecosistema_chat_id"], tg.get("ecosistema_thread_id")
+        return tg["ecosistema_chat_id"], tg.get("ecosistema_thread_id" if destino == "ecosistema" else "desinformacion_thread_id")
     sys.exit(f"[error] destino desconocido: {destino}")
 
 
@@ -347,10 +436,26 @@ def tg_call(metodo, campos, archivo=None):
     return res
 
 
-def enviar(destino, texto, pdf=None):
-    p = nombra(texto) if destino != "aviso" else None  # los avisos solo los lee Cris
-    if p:
-        sys.exit(f"[error] el mensaje menciona a {p.capitalize()}: no se envía")
+def trozos(texto, n=4000):
+    """Parte el texto en bloques de ≤ n caracteres cortando en líneas en blanco (Telegram admite 4.096)."""
+    out, cur = [], ""
+    for p in texto.split("\n\n"):  # ponytail: un párrafo suelto de más de n no se parte
+        if cur and len(cur) + len(p) + 2 > n:
+            out.append(cur)
+            cur = p
+        else:
+            cur = f"{cur}\n\n{p}" if cur else p
+    return out + [cur]
+
+
+def enviar(destino, texto, pdfs=()):
+    if destino != "aviso":  # los avisos solo los lee Cris
+        p = nombra(texto)
+        if p:
+            sys.exit(f"[error] el mensaje menciona a {p.capitalize()}: no se envía")
+        for f in pdfs:
+            if marcas_en(f):
+                sys.exit(f"[error] {Path(f).name} aún lleva marcas ({', '.join(marcas_en(f))}): pásalo por desbrandear")
     cfg = config()
     chat, hilo = destino_chat(destino, cfg)
     if cfg.get("ensayo") and destino != "aviso":
@@ -358,12 +463,10 @@ def enviar(destino, texto, pdf=None):
     base = {"chat_id": chat, "parse_mode": "HTML"}
     if hilo:
         base["message_thread_id"] = hilo
-    if pdf:
-        # caption máx. 1024: el texto va aparte y el PDF justo después
-        tg_call("sendMessage", {**base, "text": texto, "disable_web_page_preview": "true"})
-        tg_call("sendDocument", {k: v for k, v in base.items() if k != "parse_mode"}, pdf)
-    else:
-        tg_call("sendMessage", {**base, "text": texto, "disable_web_page_preview": "true"})
+    for t in trozos(texto):
+        tg_call("sendMessage", {**base, "text": t, "disable_web_page_preview": "true"})
+    for f in pdfs:  # los PDF van después del texto
+        tg_call("sendDocument", {k: v for k, v in base.items() if k != "parse_mode"}, f)
     print(f"ok {destino} -> {chat}{' (ensayo)' if cfg.get('ensayo') else ''}")
 
 
@@ -420,19 +523,24 @@ def self_check():
     mal["temas"]["Vivienda"]["redes"] = 140
     assert errores(mal)
     hoy["evolutivo"] = evolutivo(hoy, base)
-    hoy["maldita"] = {"resumen": "3 narrativas", "claims": [{"texto": "c", "verificacion": "https://x"}]}
+    hoy["maldita"] = {"resumen": "3 narrativas", "narrativas": ["Fraude, 12 menciones"], "vigilar": [{"texto": "huelga"}],
+                      "claims": [{"texto": "c", "verificacion": "https://x"}]}
+    hoy["marcos"] = [{"tema": "Vivienda", "dominante": "acceso", "bloques": "b", "fuente": "p. 2"}]
     hoy["metodologia"] = "Conversación: 6.000 menciones. Desinformación: 109 fuentes."
-    me, md = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes")
-    assert "3 narrativas" not in me and "3 narrativas" in md and PIE in me
-    assert "109 fuentes" in informe(hoy) and "109 fuentes" not in informe(hoy, "ecosistema")
-    assert "3 narrativas" not in informe(hoy, "ecosistema")
-    assert not any(nombra(x) for x in (me, md, informe(hoy), informe(hoy, "ecosistema")))
+    me, md, mx = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes"), mensaje(hoy, "desinformacion")
+    assert "3 narrativas" not in me and "Desinformación" not in me and PIE in me
+    assert "3 narrativas" in md and md.index("Cinco hallazgos") < md.index("Narrativas activas") and md.count(PIE) == 1
+    assert all(x in mx for x in ("3 narrativas", "Fraude, 12", "Afirmaciones", "huelga")) and "Cinco hallazgos" not in mx
+    assert mensaje(dict(hoy, maldita=None), "desinformacion") == "" and "Narrativas" not in mensaje(dict(hoy, maldita=None), "donantes")
+    assert "109 fuentes" in informe(hoy) and "Fuente</th>" not in informe(hoy) and "p. 2" not in informe(hoy)
+    assert not any(nombra(x) for x in (me, md, mx, informe(hoy)))
+    assert trozos("a\n\nb\n\nc", 4) == ["a\n\nb", "c"] and trozos("x") == ["x"]
     q = md[md.index("Qué se mueve"):md.index("Marcos") if "Marcos" in md else None]
     assert q.index("Encuestas") < q.index("Vivienda") < q.index("Fraude") < q.index("Brasil"), q
-    for x in (informe(hoy), informe(hoy, "ecosistema")):
-        r, t = x[x.index("Resumen"):x.index("page-break")], x[x.index("<table>"):]
-        assert r.index("Encuestas") < r.index("Vivienda") < r.index("Fraude") < r.index("Brasil"), r
-        assert t.index("Encuestas") < t.index("Vivienda") < t.index("Fraude") < t.index("Brasil"), t
+    x = informe(hoy)
+    r, t = x[x.index("Resumen"):x.index("page-break")], x[x.index("<table>"):]
+    assert r.index("Encuestas") < r.index("Vivienda") < r.index("Fraude") < r.index("Brasil"), r
+    assert t.index("Encuestas") < t.index("Vivienda") < t.index("Fraude") < t.index("Brasil"), t
     assert "3 narrativas" in informe(hoy)[:informe(hoy).index("page-break")]
     assert not errores(hoy), errores(hoy)
     assert errores(dict(hoy, maldita={"resumen": "según Maldita.es"}))
@@ -442,7 +550,20 @@ def self_check():
     assert not errores(dict(hoy, fuentes={"onclusive": "ONCLUSIVE_27-10-2026.pdf"}))
     import base64
     import tempfile
+    import pymupdf
     from email.message import EmailMessage
+    with tempfile.TemporaryDirectory() as tmp:  # desbrandear: quita marcas del texto y de los metadatos, deja el resto
+        doc = pymupdf.open()
+        pg = doc.new_page()
+        pg.insert_text((50, 50), "Cliente: Komons Kolecctive", fontsize=10)
+        pg.insert_text((50, 80), "Extracción de Onclusive con 23.178 registros", fontsize=10)
+        pg.insert_text((50, 110), "Informe pie · Komons · n.º 2", fontsize=10)
+        doc.set_metadata({"title": "Radar Komons"})
+        doc.save(Path(tmp, "a.pdf"))
+        assert marcas_en(Path(tmp, "a.pdf")) == ["komons", "kolecctive", "onclusive"] or marcas_en(Path(tmp, "a.pdf"))
+        desbrandear(Path(tmp, "a.pdf"), Path(tmp, "b.pdf"))
+        txt = pymupdf.open(Path(tmp, "b.pdf"))[0].get_text()
+        assert not marcas_en(Path(tmp, "b.pdf")) and "23.178 registros" in txt, txt
     m = EmailMessage()
     m.set_content("hola")
     m.add_attachment(b"%PDF-1.4 x", maintype="application", subtype="pdf", filename="../Informe_28-10-2026.pdf")
@@ -462,9 +583,10 @@ def main():
     sp.add_parser("pdftext").add_argument("pdf")
     sp.add_parser("validar").add_argument("hoy")
     p = sp.add_parser("evolutivo"); p.add_argument("hoy"); p.add_argument("anterior")
-    p = sp.add_parser("mensaje"); p.add_argument("hoy"); p.add_argument("para", choices=["ecosistema", "donantes"])
-    p = sp.add_parser("informe"); p.add_argument("hoy"); p.add_argument("para", nargs="?", default="donantes", choices=["ecosistema", "donantes"])
-    p = sp.add_parser("enviar"); p.add_argument("destino"); p.add_argument("--texto", required=True); p.add_argument("--pdf")
+    p = sp.add_parser("mensaje"); p.add_argument("hoy"); p.add_argument("para", choices=["ecosistema", "donantes", "desinformacion"])
+    sp.add_parser("informe").add_argument("hoy")
+    p = sp.add_parser("desbrandear"); p.add_argument("pdf"); p.add_argument("salida")
+    p = sp.add_parser("enviar"); p.add_argument("destino"); p.add_argument("--texto", required=True); p.add_argument("--pdf", action="append", default=[])
     p = sp.add_parser("adjuntos"); p.add_argument("raw"); p.add_argument("carpeta")
     sp.add_parser("chats")
     a = ap.parse_args()
@@ -493,7 +615,9 @@ def main():
     elif a.cmd == "mensaje":
         print(mensaje(cargar(a.hoy), a.para))
     elif a.cmd == "informe":
-        print(informe(cargar(a.hoy), a.para))
+        print(informe(cargar(a.hoy)))
+    elif a.cmd == "desbrandear":
+        desbrandear(a.pdf, a.salida)
     elif a.cmd == "enviar":
         enviar(a.destino, Path(a.texto).read_text(encoding="utf8"), a.pdf)
 
