@@ -17,7 +17,7 @@ Es **automático del todo**: no hay revisión humana antes de publicar.
 |---|---|---|
 | 1 | Control | Automático. El evolutivo es cuantitativo, no una valoración |
 | 2 | Ejecución | Rutina en la nube (Claude Code remote trigger), no depende del portátil |
-| 3 | Informes tarde | Se lanza a las 12:00, 12:30 y 13:00. Cada pasada sale si ya se envió hoy. A las 13:00 se publica con lo que haya, con la línea "X: pendiente" |
+| 3 | Informes tarde | Se lanza a las 11:00, 11:30 y 12:00 (respaldo 12:30). Cada pasada sale si ya se envió hoy. A las 12:00 se publica con lo que haya, con la línea "X: pendiente" |
 | 4 | Días | L-V. Fin de semana no hay informes |
 | 5 | Donantes | Canal privado nuevo (lo crea Cris) → PDF + resumen |
 | 6 | Bot | **Bot nuevo**, separado del de `agenda-prensa`, que no se toca. Claves en un archivo/secretos propios |
