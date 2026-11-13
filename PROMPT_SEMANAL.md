@@ -19,11 +19,17 @@ Si en `drive.datos` existe `enviado_semana_HOY`, termina sin hacer nada ("ya env
 Lee los históricos enteros y escribe:
 ```json
 {"tono": "1-2 frases sobre cómo ha ido la conversación en la semana",
- "claves": ["3 a 5 frases, cada una con su cifra y su día"],
+ "claves": [{"texto": "frase con su cifra y su día",
+             "canal": "redes | medios digitales | analógico",
+             "narrativa": "frase corta: cómo se discute el tema"}],
  "desinformacion": "1-2 frases sobre cómo han evolucionado las narrativas de desinformación",
+ "desinfo_mantenida": "la narrativa de desinformación que ha estado presente toda la semana (o la que más días), con su cifra",
  "vigilar": [{"fecha": "19-nov", "texto": "..."}]}
 ```
-- `claves`: lo que más se ha movido en la semana, no la suma de los días. Compara entre días: qué tema sube o baja, qué narrativa dura, qué pico hubo. Cada cifra sale de un histórico.
+- `claves` (3 a 5): lo que más se ha movido en la semana, no la suma de los días. Compara entre días: qué tema sube o baja, qué narrativa dura, qué pico hubo. Cada cifra sale de un histórico.
+  - `canal`: el bloque donde el tema pesa más en la semana. Compara la cuota de `temas` (redes %, digitales %, y analógico en piezas sobre `volumen.analogico`). Si el tema no está en `temas`, usa lo que digan `hallazgos` y `traccion`. Uno solo.
+  - `narrativa`: el marco dominante del tema. Sale de `marcos[].dominante` (y `bloques` si hace falta) del día de más peso. Una frase corta, sin valorar.
+- `desinfo_mantenida`: compara `maldita.narrativas` y `maldita.resumen` entre días y nombra la que se repite más días (p. ej. «Ley de Nietos y censo: presente 4 de 4 días, de 18 a 3 fuentes»).
 - `vigilar`: lo que cae la semana que viene. Sale del `vigilar` y de `maldita.vigilar` del último histórico. Nada que ya haya pasado.
 - Estilo del diario: frases cortas, una cifra en cada afirmación, sin adjetivos de valoración, sin emojis, nunca pidas el voto ni valores a partidos.
 - La tabla de volumen, el evolutivo de la semana, las narrativas que duran y el nº de bulos los calcula `radar.py`. No los repitas en `semana.json`.

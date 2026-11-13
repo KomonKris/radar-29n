@@ -369,7 +369,10 @@ def semana(hists):
 
 
 def errores_semana(t):
-    out = [] if 3 <= len(t.get("claves", [])) <= 5 else ["claves: entre 3 y 5"]
+    c = t.get("claves", [])
+    out = [] if 3 <= len(c) <= 5 else ["claves: entre 3 y 5"]
+    if any(not isinstance(x, dict) or not all(x.get(k) for k in ("texto", "canal", "narrativa")) for x in c):
+        out.append("cada clave lleva texto, canal y narrativa")
     p = nombra(json.dumps(t, ensure_ascii=False))
     return out + ([f"menciona a {p}"] if p else [])
 
@@ -379,6 +382,12 @@ def _rango(w):
     if a.month == b.month:
         return f"del {a.day} al {fecha_larga(w['hasta'])}"
     return f"del {fecha_larga(w['desde'])} al {fecha_larga(w['hasta'])}"
+
+
+def _rango_corto(w):
+    a, b = date.fromisoformat(w["desde"]), date.fromisoformat(w["hasta"])
+    mes = lambda d: MESES[d.month - 1][:3].upper()
+    return f"{a.day}-{b.day} {mes(b)}" if a.month == b.month else f"{a.day} {mes(a)}-{b.day} {mes(b)}"
 
 
 def _num(x):
@@ -391,21 +400,22 @@ def _vig(v):
 
 def mensaje_semana(t, w):
     tot, n = w["total"], len(w["dias"])
-    L = [f"🗓️ <b>Radar 29N · Semana {_rango(w)}</b>",
-         f"⏳ Faltan <b>{(ELECCIONES - date.fromisoformat(w['hasta'])).days} días</b> para el 29N",
-         f"📊 {n} informes · {_num(tot['redes'])} menciones en redes · {_num(tot['digitales'])} piezas digitales"]
+    L = [f"<b>RESUMEN SEMANAL {_rango_corto(w)}</b>",
+         f"📊 {n} informes · {_num(tot['redes'])} menciones en redes · {_num(tot['digitales'])} piezas digitales"
+         f" · {_num(tot['analogico'])} piezas analógicas"]
     if t.get("tono"):
         L += ["", "🌡️ <b>Cómo ha ido la semana</b>", e(t["tono"])]
-    L += ["", "🔎 <b>Claves de la semana</b>"] + [f"{NUM[i]} {e(c)}" for i, c in enumerate(t["claves"][:5])]
-    mov = se_mueve(w["evolutivo"]) if n > 1 else []
-    if mov:
-        L += ["", f"📈 <b>Qué ha cambiado {_rango(w)}</b>"]
-        L += [f"{emoji_ev(f)} · {e(f['tema'])}" for f in mov]
+    L += ["", "🔎 <b>Claves de la semana</b>"]
+    for i, c in enumerate(t["claves"][:5]):
+        L += [f"{NUM[i]} {e(c['texto'])}", f"     📡 <i>Canal principal:</i> {e(c['canal'])}", f"     🧭 <i>Narrativa:</i> {e(c['narrativa'])}"]
     if w["duran"]:
         L += ["", "🔁 <b>Narrativas que más han durado</b>"]
         L += [f"▪️ {e(k)} · {len(v)} de {n} días" for k, v in w["duran"][:5]]
     if t.get("desinformacion") or w["bulos"]:
-        L += ["", "🚨 <b>Desinformación</b>", f"{e(t.get('desinformacion', ''))} {w['bulos']} bulos registrados en la semana.".strip()]
+        L += ["", "🚨 <b>Desinformación</b>"] + ([e(t["desinformacion"])] if t.get("desinformacion") else [])
+        if t.get("desinfo_mantenida"):
+            L.append(f"🔁 <i>Se mantiene:</i> {e(t['desinfo_mantenida'])}")
+        L.append(f"{w['bulos']} bulos registrados en la semana.")
     if t.get("vigilar"):
         L += ["", "👀 <b>La semana que viene</b>"] + [f"📅 {_vig(v)}" for v in t["vigilar"]]
     return "\n".join(L + ["", "📎 Informe semanal completo en el PDF adjunto.", "", f"<i>{PIE}</i>"])
@@ -463,16 +473,18 @@ def informe_semana(t, w):
          "<p style='margin:0'>&nbsp;</p>"]
     # cifras
     kpis = [(str(faltan), "días para el 29N"), (_num(tot["redes"]), "menciones en redes"),
-            (_num(tot["digitales"]), "piezas digitales"), (str(w["bulos"]), "bulos registrados")]
+            (_num(tot["digitales"]), "piezas digitales"), (_num(tot["analogico"]), "piezas analógicas"),
+            (str(w["bulos"]), "bulos registrados")]
     H.append("<table style='border-collapse:collapse;width:100%'><tr>" + "".join(
-        f"<td style='width:25%;background:{SUAVE};border:3px solid #fff;padding:8pt 10pt'>"
+        f"<td style='width:20%;background:{SUAVE};border:3px solid #fff;padding:8pt 10pt'>"
         f"<p style='margin:0;font-size:18pt;font-weight:bold;color:{TINTA}'>{v}</p>"
         f"<p style='margin:0;font-size:8.5pt;color:#555'>{k}</p></td>" for v, k in kpis) + "</tr></table>")
     if t.get("tono"):
         H += [_h2("Cómo ha ido la semana"), f"<p style='line-height:1.4'>{e(t['tono'])}</p>"]
     H.append(_h2("Claves de la semana"))
-    H.append(_tabla(["", "Clave"], [[f"<b style='color:{TINTA};font-size:12pt'>{i + 1}</b>", e(c)]
-                                     for i, c in enumerate(t["claves"][:5])], ["6%", "94%"]))
+    H.append(_tabla(["", "Clave", "Canal principal", "Narrativa"],
+                    [[f"<b style='color:{TINTA};font-size:12pt'>{i + 1}</b>", e(c["texto"]), e(c["canal"]), e(c["narrativa"])]
+                     for i, c in enumerate(t["claves"][:5])], ["5%", "53%", "14%", "28%"]))
     if t.get("vigilar"):
         H.append(_h2("La semana que viene"))
         H.append(_tabla(["Fecha", "Qué"], [[f"<b>{e(v.get('fecha', ''))}</b>", e(v["texto"])] for v in t["vigilar"]], ["18%", "82%"]))
@@ -514,6 +526,8 @@ def informe_semana(t, w):
     H.append(_h2("4. Desinformación"))
     if t.get("desinformacion"):
         H.append(f"<p style='line-height:1.4'>{e(t['desinformacion'])}</p>")
+    if t.get("desinfo_mantenida"):
+        H.append(f"<p style='line-height:1.4'><b>Se mantiene.</b> {e(t['desinfo_mantenida'])}</p>")
     H.append(_tabla(["Día", "Resumen del día"], [[f"<b>{_corta(d['fecha'])}</b>", e(d["maldita"]["resumen"])]
                                                   for d in dias if d.get("maldita")], ["9%", "91%"]))
 
@@ -693,13 +707,16 @@ def self_check():
     d2["fecha"] = "2026-10-30"
     d2["temas"]["Vivienda"] = {k: (x * 2 if isinstance(x, (int, float)) else x) for k, x in d2["temas"]["Vivienda"].items()}
     w = semana([d2, hoy])
-    t = {"claves": ["a 1", "b 2", "c 3"], "tono": "x", "vigilar": [{"fecha": "16-nov", "texto": "debate"}]}
+    t = {"claves": [{"texto": f"{x} 1", "canal": "redes", "narrativa": "n"} for x in "abc"], "tono": "x",
+         "desinfo_mantenida": "censo", "vigilar": [{"fecha": "16-nov", "texto": "debate"}]}
     assert w["desde"] < w["hasta"] and w["total"]["redes"] == 2 * hoy["volumen"]["redes"]
     assert next(f for f in w["evolutivo"] if f["tema"] == "Vivienda")["nota"] == 2
     ms, xs = mensaje_semana(t, w), informe_semana(t, w)
     assert "Claves de la semana" in ms and "debate" in ms and "2 de 2 días" in ms and PIE in ms
     assert "Claves de la semana" in xs and "Vivienda" in xs and not any(nombra(x) for x in (ms, xs))
-    assert errores_semana({"claves": ["a"]}) and errores_semana(dict(t, tono="según Onclusive")) and not errores_semana(t)
+    assert "RESUMEN SEMANAL 27-27 OCT" not in ms and "piezas analógicas" in ms and "Canal principal" in ms
+    assert "Se mantiene" in ms and "Qué ha cambiado" not in ms and "Canal principal" in xs
+    assert errores_semana(dict(t, claves=["a 1", "b 2", "c 3"])) and errores_semana({"claves": ["a"]}) and errores_semana(dict(t, tono="según Onclusive")) and not errores_semana(t)
     import base64
     import tempfile
     import pymupdf
