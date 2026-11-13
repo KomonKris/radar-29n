@@ -23,7 +23,7 @@ Es **automático del todo**: no hay revisión humana antes de publicar.
 | 6 | Bot | **Bot nuevo**, separado del de `agenda-prensa`, que no se toca. Claves en un archivo/secretos propios |
 | 7 | Ecosistema | El bot se mete en los canales de Political Watch (lo gestiona Cris con PW). Publica directo en Monitoreo de Actualidad. Sin canal de relevo |
 | 8 | PDF donantes | Propio, consolidado, 2-3 páginas, **neutro** (sin logo ni nombre de Komons) |
-| 8b | PDF ecosistema | **Cambio 3-nov (Gabi):** Monitoreo de Actualidad recibe el **PDF del proveedor sin branding**, no el nuestro. Hasta que el proveedor lo mande así, lo desbrandeamos nosotras: `radar.py desbrandear` (quita logo, Komons y proveedor del texto y los metadatos). `enviar` rechaza cualquier PDF con marcas |
+| 8b | PDF ecosistema | **Cambio 3-nov (Gabi):** Monitoreo de Actualidad recibe el **PDF del proveedor sin branding**, no el nuestro. Desde el 13-nov el proveedor ya lo manda sin branding y se envía tal cual (se quitó `radar.py desbrandear`). `enviar` sigue rechazando cualquier PDF con marcas |
 | 9 | Evolutivo | Mide **volumen**: variación de cuota frente al informe anterior, por bloque. Nota del tema = media de los bloques con volumen suficiente. El marco dominante va aparte, como dato descriptivo. No se pide nada más a Onclusive |
 | 10 | Desinformación | **Cambio 3-nov:** el sistema **sí publica** en Desinformación Electoral (grupo ecosistema, tema 4): **solo texto, sin PDF**, mensaje dedicado y extenso (resumen, narrativas, afirmaciones del día, qué vigilar). Maldita sigue sin nombrarse. Donantes recibe monitoreo y desinformación pegados en un mensaje |
 | 11 | Comparativa de bloques | Va (qué dice PP/Vox y qué dice la izquierda de cada marco), con nota al pie fija |

@@ -9,7 +9,6 @@ SCHEMA.md. Este script hace lo determinista:
   python radar.py evolutivo <hoy.json> <anterior.json|->  añade "evolutivo" a hoy.json
   python radar.py mensaje <hoy.json> ecosistema|desinformacion|donantes  texto HTML de Telegram
   python radar.py informe <hoy.json>                      HTML del PDF de donantes
-  python radar.py desbrandear <in.pdf> <out.pdf>          quita logo, Komons y proveedor del PDF del proveedor
   python radar.py enviar <destino> --texto F [--pdf F]... destino: donantes|ecosistema|desinformacion|aviso
   python radar.py chats                                  ids de grupos (añade el bot y escribe algo antes)
   python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
@@ -57,15 +56,9 @@ def nombra(texto):
     return next((p for p in PROHIBIDO if p in t), None)
 
 
-# --- desbrandear el PDF del proveedor --------------------------------------
+# --- marcas en PDF ------------------------------------------------------
 
 MARCAS = PROHIBIDO + ("komons", "kolecctive")  # en un PDF tampoco puede quedar el nombre del cliente
-# (frase, reemplazo), de más larga a más corta. El reemplazo no debe ser más ancho que la frase.
-REEMPLAZOS = [("komons.", ""), ("· Cliente: Komons Kolecctive", ""), ("Cliente: Komons Kolecctive", ""), ("Komons Kolecctive", ""),
-              ("· Komons ·", "·"), ("con Komons.", ""), ("clipping de Onclusive", "clipping"),
-              ("dossier Onclusive", "dossier"), ("etiquetas de Onclusive", "etiquetas de la fuente"),
-              ("de Onclusive", "de la fuente")]
-GENERICOS = {"onclusive": "la fuente", "kantar": "la fuente", "maldita": "la fuente", "komons": "", "kolecctive": ""}
 
 
 def marcas_en(pdf):
@@ -75,51 +68,6 @@ def marcas_en(pdf):
     partes = [pg.get_text() for pg in doc] + [str(v) for v in doc.metadata.values()]
     partes += [lk.get("uri", "") for pg in doc for lk in pg.get_links()]
     return sorted({m for m in MARCAS if m in " ".join(partes).lower()})
-
-
-def desbrandear(src, dst):
-    """Quita logos, textos de marca y metadatos del PDF del proveedor. Sale 1 si queda alguna marca."""
-    import pymupdf
-    doc = pymupdf.open(src)
-
-    def estilo(pg, r):
-        for b in pg.get_text("dict", clip=r)["blocks"]:
-            for ln in b.get("lines", []):
-                for s in ln["spans"]:
-                    return s["size"], pymupdf.sRGB_to_pdf(s["color"]), s["origin"]
-        return 8, (0, 0, 0), (r.x0, r.y1)
-
-    def quitar(pg, frase, repl):
-        hits = pg.search_for(frase)
-        nuevos = []
-        for r in hits:
-            tam, col, origen = estilo(pg, r)
-            nuevos.append((repl, (r.x0, origen[1]), tam, col))
-            pg.add_redact_annot(r, fill=False)
-        if hits:  # una frase por pasada: al quitarla desaparecen las coincidencias más cortas
-            pg.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_NONE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
-        for txt, punto, tam, col in nuevos:  # el texto nuevo va aparte: el de la anotación se encoge hasta ser ilegible
-            if txt:
-                pg.insert_text(punto, txt, fontname="helv", fontsize=tam, color=col)
-
-    for pg in doc:
-        for x in pg.get_images(full=True):  # logo: imagen pequeña en la cabecera
-            r = pg.get_image_bbox(x)
-            if r.y1 < 120 and r.width < 250 and r.height < 80:
-                pg.add_redact_annot(r, fill=False)
-                pg.apply_redactions(images=pymupdf.PDF_REDACT_IMAGE_REMOVE, graphics=pymupdf.PDF_REDACT_LINE_ART_NONE)
-        for frase, repl in REEMPLAZOS:
-            quitar(pg, frase, repl)
-        for w, repl in GENERICOS.items():
-            quitar(pg, w, repl)
-            quitar(pg, w.capitalize(), repl)
-    doc.set_metadata({})
-    doc.del_xml_metadata()
-    doc.save(dst, garbage=4, deflate=True)
-    quedan = marcas_en(dst)
-    if quedan:
-        sys.exit(f"[error] el PDF aún menciona: {', '.join(quedan)}")
-    print(f"ok {dst}")
 
 
 def errores(d):
@@ -301,7 +249,7 @@ def _desinformacion(d):
     if m.get("narrativas"):
         L += ["", "📌 <b>Narrativas activas</b>"] + [f"▪️ {e(n)}" for n in m["narrativas"]]
     if m.get("claims"):
-        L += ["", "🧾 <b>Afirmaciones en circulación hoy</b>"] + [f"▫️ {e(c['texto'])}" for c in m["claims"]]
+        L += ["", "🧾 <b>Bulos en circulación hoy</b>"] + [f"❌ {e(c['texto'])}" for c in m["claims"]]
     if m.get("vigilar"):
         L += ["", "👀 <b>A vigilar en desinformación</b>"]
         L += [f"📅 {e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}" for v in m["vigilar"]]
@@ -382,9 +330,9 @@ def informe(d):
         H += [f"<li>{e(n)}</li>" for n in m.get("narrativas", [])]
         H.append("</ul>")
         if m.get("claims"):
-            H.append("<p>Claims del día:</p><ul>")
+            H.append("<p>Bulos en circulación hoy:</p><ul>")
             for c in m["claims"]:
-                H.append(f"<li>{e(c['texto'])}</li>")
+                H.append(f"<li>❌ {e(c['texto'])}</li>")
             H.append("</ul>")
     if d.get("vigilar"):
         H.append(f"<h2>{next(n)}. A vigilar</h2><ul>")
@@ -468,7 +416,7 @@ def enviar(destino, texto, pdfs=()):
             sys.exit(f"[error] el mensaje menciona a {p.capitalize()}: no se envía")
         for f in pdfs:
             if marcas_en(f):
-                sys.exit(f"[error] {Path(f).name} aún lleva marcas ({', '.join(marcas_en(f))}): pásalo por desbrandear")
+                sys.exit(f"[error] {Path(f).name} aún lleva marcas ({', '.join(marcas_en(f))}): no se envía")
     cfg = config()
     chat, hilo = destino_chat(destino, cfg)
     if cfg.get("ensayo") and destino != "aviso":
@@ -543,7 +491,7 @@ def self_check():
     me, md, mx = mensaje(hoy, "ecosistema"), mensaje(hoy, "donantes"), mensaje(hoy, "desinformacion")
     assert "3 narrativas" not in me and "Desinformación" not in me and PIE in me
     assert "3 narrativas" in md and md.index("Cinco hallazgos") < md.index("Narrativas activas") and md.count(PIE) == 1
-    assert all(x in mx for x in ("3 narrativas", "Fraude, 12", "Afirmaciones", "huelga")) and "Cinco hallazgos" not in mx
+    assert all(x in mx for x in ("3 narrativas", "Fraude, 12", "Bulos en circulación", "❌ c", "huelga")) and "Cinco hallazgos" not in mx
     assert mensaje(dict(hoy, maldita=None), "desinformacion") == "" and "Narrativas" not in mensaje(dict(hoy, maldita=None), "donantes")
     assert "109 fuentes" in informe(hoy) and "Fuente</th>" not in informe(hoy) and "p. 2" not in informe(hoy)
     assert not any(nombra(x) for x in (me, md, mx, informe(hoy)))
@@ -565,18 +513,16 @@ def self_check():
     import tempfile
     import pymupdf
     from email.message import EmailMessage
-    with tempfile.TemporaryDirectory() as tmp:  # desbrandear: quita marcas del texto y de los metadatos, deja el resto
+    with tempfile.TemporaryDirectory() as tmp:  # marcas_en: el PDF con marcas no sale (enviar lo rechaza)
         doc = pymupdf.open()
-        pg = doc.new_page()
-        pg.insert_text((50, 50), "Cliente: Komons Kolecctive", fontsize=10)
-        pg.insert_text((50, 80), "Extracción de Onclusive con 23.178 registros", fontsize=10)
-        pg.insert_text((50, 110), "Informe pie · Komons · n.º 2", fontsize=10)
+        doc.new_page().insert_text((50, 50), "Extracción de Onclusive con 23.178 registros", fontsize=10)
         doc.set_metadata({"title": "Radar Komons"})
         doc.save(Path(tmp, "a.pdf"))
-        assert marcas_en(Path(tmp, "a.pdf")) == ["komons", "kolecctive", "onclusive"] or marcas_en(Path(tmp, "a.pdf"))
-        desbrandear(Path(tmp, "a.pdf"), Path(tmp, "b.pdf"))
-        txt = pymupdf.open(Path(tmp, "b.pdf"))[0].get_text()
-        assert not marcas_en(Path(tmp, "b.pdf")) and "23.178 registros" in txt, txt
+        assert marcas_en(Path(tmp, "a.pdf")) == ["komons", "onclusive"], marcas_en(Path(tmp, "a.pdf"))
+        doc = pymupdf.open()
+        doc.new_page().insert_text((50, 50), "Informe diario", fontsize=10)
+        doc.save(Path(tmp, "b.pdf"))
+        assert not marcas_en(Path(tmp, "b.pdf"))
     m = EmailMessage()
     m.set_content("hola")
     m.add_attachment(b"%PDF-1.4 x", maintype="application", subtype="pdf", filename="../Informe_28-10-2026.pdf")
@@ -598,7 +544,6 @@ def main():
     p = sp.add_parser("evolutivo"); p.add_argument("hoy"); p.add_argument("anterior")
     p = sp.add_parser("mensaje"); p.add_argument("hoy"); p.add_argument("para", choices=["ecosistema", "donantes", "desinformacion"])
     sp.add_parser("informe").add_argument("hoy")
-    p = sp.add_parser("desbrandear"); p.add_argument("pdf"); p.add_argument("salida")
     p = sp.add_parser("enviar"); p.add_argument("destino"); p.add_argument("--texto", required=True); p.add_argument("--pdf", action="append", default=[])
     p = sp.add_parser("adjuntos"); p.add_argument("raw"); p.add_argument("carpeta")
     sp.add_parser("chats")
@@ -629,8 +574,6 @@ def main():
         print(mensaje(cargar(a.hoy), a.para))
     elif a.cmd == "informe":
         print(informe(cargar(a.hoy)))
-    elif a.cmd == "desbrandear":
-        desbrandear(a.pdf, a.salida)
     elif a.cmd == "enviar":
         enviar(a.destino, Path(a.texto).read_text(encoding="utf8"), a.pdf)
 
