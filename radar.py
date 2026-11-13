@@ -12,6 +12,7 @@ SCHEMA.md. Este script hace lo determinista:
   python radar.py enviar <destino> --texto F [--pdf F]... destino: donantes|ecosistema|desinformacion|aviso
   python radar.py chats                                  ids de grupos (añade el bot y escribe algo antes)
   python radar.py adjuntos <raw> <carpeta>                saca los adjuntos de un get_message RAW de Gmail
+  python radar.py semanal mensaje|informe <semana.json> <historico.json>...  resumen semanal (donantes)
   python radar.py --self-check
 
 `enviar` respeta config.json: con "ensayo": true todo va a aviso_chat_id.
@@ -270,15 +271,17 @@ def mensaje(d, para):
     return "\n".join(L +["", f"<i>{PIE}</i>"])
 
 
+CSS = ("body{font-family:Arial,sans-serif;font-size:10.5pt;color:#111}h1{font-size:16pt;margin:0}"
+       "h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%}"
+       "td,th{border:1px solid #bbb;padding:3pt 5pt;text-align:left;vertical-align:top}th{background:#eee}"
+       ".pie{font-size:8.5pt;color:#555;margin-top:16pt}")
+
+
 def informe(d):
     ev = d.get("evolutivo", {})
     n = iter(range(1, 10))  # numeración de secciones
-    css = ("body{font-family:Arial,sans-serif;font-size:10.5pt;color:#111}h1{font-size:16pt;margin:0}"
-           "h2{font-size:12pt;margin:14pt 0 4pt;border-bottom:1px solid #999}table{border-collapse:collapse;width:100%}"
-           "td,th{border:1px solid #bbb;padding:3pt 5pt;text-align:left;vertical-align:top}th{background:#eee}"
-           ".pie{font-size:8.5pt;color:#555;margin-top:16pt}")
     v = d["volumen"]
-    H = [f"<html><head><meta charset='utf-8'><style>{css}</style></head><body>",
+    H = [f"<html><head><meta charset='utf-8'><style>{CSS}</style></head><body>",
          f"<h1>Radar 29N · {e(fecha_larga(d['fecha']))} de {d['fecha'][:4]}</h1>",
          f"<p>{(ELECCIONES - date.fromisoformat(d['fecha'])).days} días para las elecciones del 29N · "
          f"{v['redes']:,} menciones en redes · {v['digitales']:,} piezas digitales · {v['analogico']} piezas analógicas</p>".replace(",", ".")]
@@ -344,6 +347,123 @@ def informe(d):
 
 
 # --- telegram -------------------------------------------------------------
+
+# --- resumen semanal (viernes, solo donantes) ------------------------------
+
+def semana(hists):
+    """Cifras de la semana a partir de los históricos diarios."""
+    hs = sorted(hists, key=lambda d: d["fecha"])
+    narr = {}
+    for d in hs:
+        for n, x in d.get("narrativas_redes", {}).items():
+            if n not in TEMAS:
+                narr.setdefault(n, []).append(x)
+    return {
+        "desde": hs[0]["fecha"], "hasta": hs[-1]["fecha"], "dias": hs,
+        "total": {b: sum(d["volumen"][b] for d in hs) for b in BLOQUES},
+        # último informe contra el primero, misma escala que el diario
+        "evolutivo": evolutivo(hs[-1], hs[0] if len(hs) > 1 else None)["filas"],
+        "duran": sorted(((k, v) for k, v in narr.items() if len(v) > 1), key=lambda kv: (-len(kv[1]), -max(kv[1])))[:8],
+        "bulos": sum(len((d.get("maldita") or {}).get("claims", [])) for d in hs),
+    }
+
+
+def errores_semana(t):
+    out = [] if 3 <= len(t.get("claves", [])) <= 5 else ["claves: entre 3 y 5"]
+    p = nombra(json.dumps(t, ensure_ascii=False))
+    return out + ([f"menciona a {p}"] if p else [])
+
+
+def _rango(w):
+    a, b = date.fromisoformat(w["desde"]), date.fromisoformat(w["hasta"])
+    if a.month == b.month:
+        return f"del {a.day} al {fecha_larga(w['hasta'])}"
+    return f"del {fecha_larga(w['desde'])} al {fecha_larga(w['hasta'])}"
+
+
+def _num(x):
+    return f"{x:,}".replace(",", ".")
+
+
+def _vig(v):
+    return f"{e(v['fecha'] + ' · ') if v.get('fecha') else ''}{e(v['texto'])}"
+
+
+def mensaje_semana(t, w):
+    tot, n = w["total"], len(w["dias"])
+    L = [f"🗓️ <b>Radar 29N · Semana {_rango(w)}</b>",
+         f"⏳ Faltan <b>{(ELECCIONES - date.fromisoformat(w['hasta'])).days} días</b> para el 29N",
+         f"📊 {n} informes · {_num(tot['redes'])} menciones en redes · {_num(tot['digitales'])} piezas digitales"]
+    if t.get("tono"):
+        L += ["", "🌡️ <b>Cómo ha ido la semana</b>", e(t["tono"])]
+    L += ["", "🔎 <b>Claves de la semana</b>"] + [f"{NUM[i]} {e(c)}" for i, c in enumerate(t["claves"][:5])]
+    mov = se_mueve(w["evolutivo"]) if n > 1 else []
+    if mov:
+        L += ["", f"📈 <b>Qué ha cambiado {_rango(w)}</b>"]
+        L += [f"{emoji_ev(f)} · {e(f['tema'])}" for f in mov]
+    if w["duran"]:
+        L += ["", "🔁 <b>Narrativas que más han durado</b>"]
+        L += [f"▪️ {e(k)} · {len(v)} de {n} días" for k, v in w["duran"][:5]]
+    if t.get("desinformacion") or w["bulos"]:
+        L += ["", "🚨 <b>Desinformación</b>", f"{e(t.get('desinformacion', ''))} {w['bulos']} bulos registrados en la semana.".strip()]
+    if t.get("vigilar"):
+        L += ["", "👀 <b>La semana que viene</b>"] + [f"📅 {_vig(v)}" for v in t["vigilar"]]
+    return "\n".join(L + ["", "📎 Informe semanal completo en el PDF adjunto.", "", f"<i>{PIE}</i>"])
+
+
+def informe_semana(t, w):
+    dias, tot = w["dias"], w["total"]
+    H = [f"<html><head><meta charset='utf-8'><style>{CSS}</style></head><body>",
+         f"<h1>Radar 29N · Semana {e(_rango(w))} de {w['hasta'][:4]}</h1>",
+         f"<p>{(ELECCIONES - date.fromisoformat(w['hasta'])).days} días para las elecciones del 29N · {len(dias)} informes diarios · "
+         f"{_num(tot['redes'])} menciones en redes · {_num(tot['digitales'])} piezas digitales · {_num(tot['analogico'])} piezas analógicas</p>",
+         "<h2>Resumen</h2>"]
+    if t.get("tono"):
+        H.append(f"<p><b>Cómo ha ido la semana.</b> {e(t['tono'])}</p>")
+    H.append("<p><b>Claves de la semana</b></p><ol>")
+    H += [f"<li>{e(c)}</li>" for c in t["claves"][:5]]
+    H.append("</ol>")
+    if t.get("vigilar"):
+        H.append("<p><b>La semana que viene</b></p><ul>")
+        H += [f"<li>{_vig(v)}</li>" for v in t["vigilar"]]
+        H.append("</ul>")
+    H.append("<h2 style='page-break-before:always'>1. Volumen y tema con más tracción por día</h2>"
+             "<table><tr><th>Día</th><th>Redes</th><th>Digitales</th><th>Analógico</th><th>Más tracción</th></tr>")
+    for d in dias:
+        v = d["volumen"]
+        H.append(f"<tr><td>{e(fecha_larga(d['fecha']))}</td><td>{_num(v['redes'])}</td><td>{_num(v['digitales'])}</td>"
+                 f"<td>{_num(v['analogico'])}</td><td>{e(d.get('traccion', ''))}</td></tr>")
+    H.append("</table><p>El informe del lunes incluye el fin de semana.</p>")
+    H.append("<h2>2. Temas prioritarios: cuota en redes (%) y evolutivo de la semana</h2>")
+    if len(dias) > 1:
+        H.append(f"<p>Evolutivo: {e(fecha_larga(w['hasta']))} frente a {e(fecha_larga(w['desde']))}, con la escala del informe diario "
+                 "(≥+50% → +2 · +25..50% → +1 · −20..+25% → 0 · −50..−20% → −1 · ≤−50% → −2).</p>")
+    cab = "".join(f"<th>{e(fecha_larga(d['fecha']))}</th>" for d in dias)
+    H.append(f"<table><tr><th>Tema</th>{cab}<th>Evolutivo</th></tr>")
+    ev = {f["tema"]: f for f in w["evolutivo"]}
+    for tema in TEMAS:
+        cel = ""
+        for d in dias:
+            x = d.get("temas", {}).get(tema, {}).get("redes")
+            cel += f"<td>{'—' if x is None else e(x)}</td>"
+        H.append(f"<tr><td>{e(tema)}</td>{cel}<td>{e(indicador(ev[tema])) if tema in ev else '—'}</td></tr>")
+    H.append("</table>")
+    if w["duran"]:
+        H.append("<h2>3. Narrativas en redes que más han durado</h2>"
+                 "<table><tr><th>Narrativa</th><th>Días presente</th><th>Cuota máxima en redes</th></tr>")
+        H += [f"<tr><td>{e(k)}</td><td>{len(v)} de {len(dias)}</td><td>{e(max(v))} %</td></tr>" for k, v in w["duran"]]
+        H.append("</table>")
+    H.append("<h2>4. Desinformación</h2>")
+    if t.get("desinformacion"):
+        H.append(f"<p>{e(t['desinformacion'])}</p>")
+    H.append(f"<p>{w['bulos']} bulos registrados en la semana.</p><ul>")
+    H += [f"<li><b>{e(fecha_larga(d['fecha']))}.</b> {e(d['maldita']['resumen'])}</li>" for d in dias if d.get("maldita")]
+    H.append("</ul>")
+    H.append("<h2>Nota metodológica</h2><p>Resumen elaborado con los informes diarios del Radar 29N de la semana. "
+             "Las cifras son las de cada informe diario; el evolutivo compara el último informe de la semana con el primero.</p>")
+    H.append(f"<p class='pie'>{PIE}</p></body></html>")
+    return "\n".join(H)
+
 
 def destino_chat(destino, cfg):
     tg = cfg["telegram"]
@@ -509,6 +629,18 @@ def self_check():
     assert errores(dict(hoy, metodologia="Onclusive: 6.000 menciones"))
     assert errores(dict(hoy, marcos=[{"tema": "Vivienda", "dominante": "x", "fuente": "Onclusive, p. 2"}]))
     assert not errores(dict(hoy, fuentes={"onclusive": "ONCLUSIVE_27-10-2026.pdf"}))
+    # semanal: dos días con el ejemplo; el segundo con Vivienda al doble
+    d2 = json.loads(json.dumps(hoy))
+    d2["fecha"] = "2026-10-30"
+    d2["temas"]["Vivienda"] = {k: (x * 2 if isinstance(x, (int, float)) else x) for k, x in d2["temas"]["Vivienda"].items()}
+    w = semana([d2, hoy])
+    t = {"claves": ["a 1", "b 2", "c 3"], "tono": "x", "vigilar": [{"fecha": "16-nov", "texto": "debate"}]}
+    assert w["desde"] < w["hasta"] and w["total"]["redes"] == 2 * hoy["volumen"]["redes"]
+    assert next(f for f in w["evolutivo"] if f["tema"] == "Vivienda")["nota"] == 2
+    ms, xs = mensaje_semana(t, w), informe_semana(t, w)
+    assert "Claves de la semana" in ms and "debate" in ms and "2 de 2 días" in ms and PIE in ms
+    assert "page-break" in xs and "Vivienda" in xs and not any(nombra(x) for x in (ms, xs))
+    assert errores_semana({"claves": ["a"]}) and errores_semana(dict(t, tono="según Onclusive")) and not errores_semana(t)
     import base64
     import tempfile
     import pymupdf
@@ -541,6 +673,7 @@ def main():
     sp = ap.add_subparsers(dest="cmd", required=True)
     sp.add_parser("pdftext").add_argument("pdf")
     sp.add_parser("validar").add_argument("hoy")
+    p = sp.add_parser("semanal"); p.add_argument("que", choices=["mensaje", "informe"]); p.add_argument("semana"); p.add_argument("historicos", nargs="+")
     p = sp.add_parser("evolutivo"); p.add_argument("hoy"); p.add_argument("anterior")
     p = sp.add_parser("mensaje"); p.add_argument("hoy"); p.add_argument("para", choices=["ecosistema", "donantes", "desinformacion"])
     sp.add_parser("informe").add_argument("hoy")
@@ -564,6 +697,13 @@ def main():
         err = errores(cargar(a.hoy))
         print("\n".join(err) or "ok")
         sys.exit(1 if err else 0)
+    elif a.cmd == "semanal":
+        t = cargar(a.semana)
+        err = errores_semana(t)
+        if err:
+            sys.exit("[error] semana.json: " + "; ".join(err))
+        w = semana([cargar(h) for h in a.historicos])
+        print(mensaje_semana(t, w) if a.que == "mensaje" else informe_semana(t, w))
     elif a.cmd == "evolutivo":
         d = cargar(a.hoy)
         d["evolutivo"] = evolutivo(d, None if a.anterior == "-" else cargar(a.anterior))
