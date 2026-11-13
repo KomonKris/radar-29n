@@ -439,7 +439,20 @@ def tg_call(metodo, campos, archivo=None):
 def trozos(texto, n=4000):
     """Parte el texto en bloques de ≤ n caracteres cortando en líneas en blanco (Telegram admite 4.096)."""
     out, cur = [], ""
-    for p in texto.split("\n\n"):  # ponytail: un párrafo suelto de más de n no se parte
+    piezas = []
+    for p in texto.split("\n\n"):
+        if len(p) <= n:
+            piezas.append(p)
+            continue
+        sub = ""  # párrafo de más de n: se parte por líneas
+        for ln in p.split("\n"):
+            if sub and len(sub) + len(ln) + 1 > n:
+                piezas.append(sub)
+                sub = ln
+            else:
+                sub = f"{sub}\n{ln}" if sub else ln
+        piezas.append(sub)
+    for p in piezas:
         if cur and len(cur) + len(p) + 2 > n:
             out.append(cur)
             cur = p
