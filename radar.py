@@ -411,57 +411,116 @@ def mensaje_semana(t, w):
     return "\n".join(L + ["", "📎 Informe semanal completo en el PDF adjunto.", "", f"<i>{PIE}</i>"])
 
 
+TINTA, SUAVE, LINEA = "#1f2a44", "#eef1f6", "#c9cfdb"
+SUBE, BAJA = "#1e7a46", "#b3261e"
+
+
+def _tabla(cab, filas, anchos=None):
+    """Tabla con cabecera oscura y filas alternas. Estilos en línea: Google Docs ignora parte del <style>."""
+    td = f"border:1px solid {LINEA};padding:4pt 6pt;vertical-align:top;font-size:9.5pt"
+    H = [f"<table style='border-collapse:collapse;width:100%'><tr>"]
+    for i, c in enumerate(cab):
+        w = f"width:{anchos[i]};" if anchos else ""
+        H.append(f"<th style='{td};{w}background:{TINTA};color:#fff;text-align:left'>{c}</th>")
+    H.append("</tr>")
+    for j, f in enumerate(filas):
+        bg = SUAVE if j % 2 else "#fff"
+        H.append("<tr>" + "".join(f"<td style='{td};background:{bg}'>{c}</td>" for c in f) + "</tr>")
+    return "".join(H) + "</table>"
+
+
+def _corta(iso):
+    d = date.fromisoformat(iso)
+    return f"{'lun mar mié jue vie sáb dom'.split()[d.weekday()]} {d.day}"
+
+
+def _dec(x):
+    return e(str(x).replace(".", ","))
+
+
+def _ev_html(f):
+    if f is None:
+        return "—"
+    txt = e(indicador(f))
+    col = SUBE if (f["nota"] or 0) > 0 or f["estado"] == "NUEVA" else BAJA if (f["nota"] or 0) < 0 or f["estado"] == "DESAPARECE" else "#555"
+    return f"<b style='color:{col}'>{txt}</b>"
+
+
+def _h2(txt):
+    return f"<h2><span style='font-size:13pt;color:{TINTA}'>{txt}</span></h2>"
+
+
 def informe_semana(t, w):
     dias, tot = w["dias"], w["total"]
-    H = [f"<html><head><meta charset='utf-8'><style>{CSS}</style></head><body>",
-         f"<h1>Radar 29N · Semana {e(_rango(w))} de {w['hasta'][:4]}</h1>",
-         f"<p>{(ELECCIONES - date.fromisoformat(w['hasta'])).days} días para las elecciones del 29N · {len(dias)} informes diarios · "
-         f"{_num(tot['redes'])} menciones en redes · {_num(tot['digitales'])} piezas digitales · {_num(tot['analogico'])} piezas analógicas</p>",
-         "<h2>Resumen</h2>"]
+    faltan = (ELECCIONES - date.fromisoformat(w["hasta"])).days
+    H = [f"<html><head><meta charset='utf-8'></head><body style='font-family:Arial,sans-serif;font-size:10.5pt;color:#111'>",
+         # cabecera
+         f"<table style='border-collapse:collapse;width:100%'><tr><td style='background:{TINTA};color:#fff;padding:12pt 14pt'>"
+         f"<p style='margin:0;font-size:8.5pt;letter-spacing:2pt;color:#c9d3e6'>RADAR 29N · RESUMEN SEMANAL</p>"
+         f"<p style='margin:4pt 0 0;font-size:19pt;font-weight:bold;color:#fff'>Semana {e(_rango(w))} de {w['hasta'][:4]}</p>"
+         f"<p style='margin:4pt 0 0;font-size:9pt;color:#c9d3e6'>{len(dias)} informes diarios · conversación en redes, medios digitales, "
+         f"medios analógicos y desinformación</p></td></tr></table>",
+         "<p style='margin:0'>&nbsp;</p>"]
+    # cifras
+    kpis = [(str(faltan), "días para el 29N"), (_num(tot["redes"]), "menciones en redes"),
+            (_num(tot["digitales"]), "piezas digitales"), (str(w["bulos"]), "bulos registrados")]
+    H.append("<table style='border-collapse:collapse;width:100%'><tr>" + "".join(
+        f"<td style='width:25%;background:{SUAVE};border:3px solid #fff;padding:8pt 10pt'>"
+        f"<p style='margin:0;font-size:18pt;font-weight:bold;color:{TINTA}'>{v}</p>"
+        f"<p style='margin:0;font-size:8.5pt;color:#555'>{k}</p></td>" for v, k in kpis) + "</tr></table>")
     if t.get("tono"):
-        H.append(f"<p><b>Cómo ha ido la semana.</b> {e(t['tono'])}</p>")
-    H.append("<p><b>Claves de la semana</b></p><ol>")
-    H += [f"<li>{e(c)}</li>" for c in t["claves"][:5]]
-    H.append("</ol>")
+        H += [_h2("Cómo ha ido la semana"), f"<p style='line-height:1.4'>{e(t['tono'])}</p>"]
+    H.append(_h2("Claves de la semana"))
+    H.append(_tabla(["", "Clave"], [[f"<b style='color:{TINTA};font-size:12pt'>{i + 1}</b>", e(c)]
+                                     for i, c in enumerate(t["claves"][:5])], ["6%", "94%"]))
     if t.get("vigilar"):
-        H.append("<p><b>La semana que viene</b></p><ul>")
-        H += [f"<li>{_vig(v)}</li>" for v in t["vigilar"]]
-        H.append("</ul>")
-    H.append("<h2 style='page-break-before:always'>1. Volumen y tema con más tracción por día</h2>"
-             "<table><tr><th>Día</th><th>Redes</th><th>Digitales</th><th>Analógico</th><th>Más tracción</th></tr>")
-    for d in dias:
-        v = d["volumen"]
-        H.append(f"<tr><td>{e(fecha_larga(d['fecha']))}</td><td>{_num(v['redes'])}</td><td>{_num(v['digitales'])}</td>"
-                 f"<td>{_num(v['analogico'])}</td><td>{e(d.get('traccion', ''))}</td></tr>")
-    H.append("</table><p>El informe del lunes incluye el fin de semana.</p>")
-    H.append("<h2>2. Temas prioritarios: cuota en redes (%) y evolutivo de la semana</h2>")
+        H.append(_h2("La semana que viene"))
+        H.append(_tabla(["Fecha", "Qué"], [[f"<b>{e(v.get('fecha', ''))}</b>", e(v["texto"])] for v in t["vigilar"]], ["18%", "82%"]))
+
+    H.append(_h2("1. Volumen y tema con más tracción por día"))
+    H.append(_tabla(["Día", "Redes", "Digitales", "Analógico", "Más tracción"],
+                    [[f"<b>{_corta(d['fecha'])}</b>", _num(d["volumen"]["redes"]), _num(d["volumen"]["digitales"]),
+                      _num(d["volumen"]["analogico"]), e(d.get("traccion", ""))] for d in dias],
+                    ["9%", "11%", "12%", "12%", "56%"]))
+    H.append("<p style='font-size:8.5pt;color:#555'>El informe del lunes incluye el fin de semana.</p>")
+
+    H.append(_h2("2. Temas prioritarios: cuota en redes (%)"))
     if len(dias) > 1:
-        H.append(f"<p>Evolutivo: {e(fecha_larga(w['hasta']))} frente a {e(fecha_larga(w['desde']))}, con la escala del informe diario "
-                 "(≥+50% → +2 · +25..50% → +1 · −20..+25% → 0 · −50..−20% → −1 · ≤−50% → −2).</p>")
-    cab = "".join(f"<th>{e(fecha_larga(d['fecha']))}</th>" for d in dias)
-    H.append(f"<table><tr><th>Tema</th>{cab}<th>Evolutivo</th></tr>")
+        H.append(f"<p style='font-size:9pt;color:#555'>Evolutivo: {e(fecha_larga(w['hasta']))} frente a {e(fecha_larga(w['desde']))}, "
+                 "con la escala del informe diario (≥+50% → +2 · +25..50% → +1 · −20..+25% → 0 · −50..−20% → −1 · ≤−50% → −2).</p>")
     ev = {f["tema"]: f for f in w["evolutivo"]}
+    filas = []
     for tema in TEMAS:
-        cel = ""
+        cel = []
         for d in dias:
             x = d.get("temas", {}).get(tema, {}).get("redes")
-            cel += f"<td>{'—' if x is None else e(x)}</td>"
-        H.append(f"<tr><td>{e(tema)}</td>{cel}<td>{e(indicador(ev[tema])) if tema in ev else '—'}</td></tr>")
-    H.append("</table>")
+            cel.append("—" if x is None else _dec(x))
+        filas.append([f"<b>{e(tema)}</b>"] + cel + [_ev_html(ev.get(tema))])
+    k = 58 // len(dias)
+    H.append(_tabla(["Tema"] + [_corta(d["fecha"]) for d in dias] + ["Evolutivo"], filas,
+                    ["26%"] + [f"{k}%"] * len(dias) + [f"{74 - k * len(dias)}%"]))
+
+    mov = [f for f in se_mueve(w["evolutivo"]) if f.get("narrativa")] if len(dias) > 1 else []
+    if w["duran"] or mov:
+        H.append(_h2("3. Narrativas en redes"))
     if w["duran"]:
-        H.append("<h2>3. Narrativas en redes que más han durado</h2>"
-                 "<table><tr><th>Narrativa</th><th>Días presente</th><th>Cuota máxima en redes</th></tr>")
-        H += [f"<tr><td>{e(k)}</td><td>{len(v)} de {len(dias)}</td><td>{e(max(v))} %</td></tr>" for k, v in w["duran"]]
-        H.append("</table>")
-    H.append("<h2>4. Desinformación</h2>")
+        H.append("<p style='margin:8pt 0 4pt'><b>Las que más han durado</b></p>")
+        H.append(_tabla(["Narrativa", "Días presente", "Cuota máxima"],
+                        [[e(k), f"{len(v)} de {len(dias)}", f"{_dec(max(v))} %"] for k, v in w["duran"]], ["64%", "18%", "18%"]))
+    if mov:
+        H.append("<p style='margin:12pt 0 4pt'><b>Qué ha cambiado en la semana</b></p>")
+        H.append(_tabla(["Narrativa", "Evolutivo"], [[e(f["tema"]), _ev_html(f)] for f in mov], ["78%", "22%"]))
+
+    H.append(_h2("4. Desinformación"))
     if t.get("desinformacion"):
-        H.append(f"<p>{e(t['desinformacion'])}</p>")
-    H.append(f"<p>{w['bulos']} bulos registrados en la semana.</p><ul>")
-    H += [f"<li><b>{e(fecha_larga(d['fecha']))}.</b> {e(d['maldita']['resumen'])}</li>" for d in dias if d.get("maldita")]
-    H.append("</ul>")
-    H.append("<h2>Nota metodológica</h2><p>Resumen elaborado con los informes diarios del Radar 29N de la semana. "
+        H.append(f"<p style='line-height:1.4'>{e(t['desinformacion'])}</p>")
+    H.append(_tabla(["Día", "Resumen del día"], [[f"<b>{_corta(d['fecha'])}</b>", e(d["maldita"]["resumen"])]
+                                                  for d in dias if d.get("maldita")], ["9%", "91%"]))
+
+    H.append(_h2("Nota metodológica"))
+    H.append("<p style='font-size:9pt;color:#444'>Resumen elaborado con los informes diarios del Radar 29N de la semana. "
              "Las cifras son las de cada informe diario; el evolutivo compara el último informe de la semana con el primero.</p>")
-    H.append(f"<p class='pie'>{PIE}</p></body></html>")
+    H.append(f"<p style='font-size:8.5pt;color:#555;margin-top:16pt'><i>{PIE}</i></p></body></html>")
     return "\n".join(H)
 
 
@@ -639,7 +698,7 @@ def self_check():
     assert next(f for f in w["evolutivo"] if f["tema"] == "Vivienda")["nota"] == 2
     ms, xs = mensaje_semana(t, w), informe_semana(t, w)
     assert "Claves de la semana" in ms and "debate" in ms and "2 de 2 días" in ms and PIE in ms
-    assert "page-break" in xs and "Vivienda" in xs and not any(nombra(x) for x in (ms, xs))
+    assert "Claves de la semana" in xs and "Vivienda" in xs and not any(nombra(x) for x in (ms, xs))
     assert errores_semana({"claves": ["a"]}) and errores_semana(dict(t, tono="según Onclusive")) and not errores_semana(t)
     import base64
     import tempfile

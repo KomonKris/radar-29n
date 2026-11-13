@@ -94,4 +94,4 @@ Un día normal no se manda nada. Si no hay ningún informe a las 13:00, no se pu
 
 
 ## Resumen semanal (13-nov, Cris)
-Viernes a las 13:00 (Madrid), **solo donantes**: mensaje + PDF `Radar29N_semanal_<fecha>`. Rutina aparte, instrucciones en `PROMPT_SEMANAL.md`. Las cifras (volumen por día, evolutivo del último informe frente al primero de la semana con la escala −2..+2, narrativas que duran 2+ días, nº de bulos) salen de los `historico_*.json` con `radar.py semanal`; la rutina solo redacta tono, 3–5 claves, desinformación y qué vigilar la semana siguiente. Control: `enviado_semana_<fecha>` en `drive.datos`.
+Viernes a las 12:00 (Madrid), **solo donantes**: mensaje + PDF `Radar29N_semanal_<fecha>`. Rutina aparte, instrucciones en `PROMPT_SEMANAL.md`. Las cifras (volumen por día, evolutivo del último informe frente al primero de la semana con la escala −2..+2, narrativas que duran 2+ días, nº de bulos) salen de los `historico_*.json` con `radar.py semanal`; la rutina solo redacta tono, 3–5 claves, desinformación y qué vigilar la semana siguiente. Control: `enviado_semana_<fecha>` en `drive.datos`.
