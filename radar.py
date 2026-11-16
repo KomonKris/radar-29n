@@ -57,20 +57,6 @@ def nombra(texto):
     return next((p for p in PROHIBIDO if p in t), None)
 
 
-# --- marcas en PDF ------------------------------------------------------
-
-MARCAS = PROHIBIDO + ("komons", "kolecctive")  # en un PDF tampoco puede quedar el nombre del cliente
-
-
-def marcas_en(pdf):
-    """Marcas que quedan en un PDF: texto, metadatos y URLs de enlaces."""
-    import pymupdf
-    doc = pymupdf.open(pdf)
-    partes = [pg.get_text() for pg in doc] + [str(v) for v in doc.metadata.values()]
-    partes += [lk.get("uri", "") for pg in doc for lk in pg.get_links()]
-    return sorted({m for m in MARCAS if m in " ".join(partes).lower()})
-
-
 def errores(d):
     e = []
     vol = d.get("volumen", {})
@@ -607,9 +593,7 @@ def enviar(destino, texto, pdfs=()):
         p = nombra(texto)
         if p:
             sys.exit(f"[error] el mensaje menciona a {p.capitalize()}: no se envía")
-        for f in pdfs:
-            if marcas_en(f):
-                sys.exit(f"[error] {Path(f).name} aún lleva marcas ({', '.join(marcas_en(f))}): no se envía")
+    # los PDF se envían tal cual llegan, sin revisar marcas (decisión de Cris, 16-nov)
     cfg = config()
     chat, hilo = destino_chat(destino, cfg)
     if cfg.get("ensayo") and destino != "aviso":
@@ -719,18 +703,7 @@ def self_check():
     assert errores_semana(dict(t, claves=["a 1", "b 2", "c 3"])) and errores_semana({"claves": ["a"]}) and errores_semana(dict(t, tono="según Onclusive")) and not errores_semana(t)
     import base64
     import tempfile
-    import pymupdf
     from email.message import EmailMessage
-    with tempfile.TemporaryDirectory() as tmp:  # marcas_en: el PDF con marcas no sale (enviar lo rechaza)
-        doc = pymupdf.open()
-        doc.new_page().insert_text((50, 50), "Extracción de Onclusive con 23.178 registros", fontsize=10)
-        doc.set_metadata({"title": "Radar Komons"})
-        doc.save(Path(tmp, "a.pdf"))
-        assert marcas_en(Path(tmp, "a.pdf")) == ["komons", "onclusive"], marcas_en(Path(tmp, "a.pdf"))
-        doc = pymupdf.open()
-        doc.new_page().insert_text((50, 50), "Informe diario", fontsize=10)
-        doc.save(Path(tmp, "b.pdf"))
-        assert not marcas_en(Path(tmp, "b.pdf"))
     m = EmailMessage()
     m.set_content("hola")
     m.add_attachment(b"%PDF-1.4 x", maintype="application", subtype="pdf", filename="../Informe_28-10-2026.pdf")
