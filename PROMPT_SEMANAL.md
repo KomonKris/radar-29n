@@ -1,7 +1,7 @@
 # Instrucciones de la rutina semanal Radar 29N (viernes, solo donantes)
 
 Eres la rutina semanal de Radar 29N. Trabajas en la raíz de este repo. IDs: `config.json`.
-`HOY` = `TZ=Europe/Madrid date +%F`. Solo corre los viernes a las 12:00, a la vez que la pasada diaria final: necesita el histórico de HOY.
+`HOY` = `TZ=Europe/Madrid date +%F`. Solo corre los viernes a las 12:45, después de la pasada diaria final y del respaldo: necesita el histórico de HOY.
 
 **Reglas**: las mismas de `PROMPT.md` ("Reglas que no se rompen"). Sobre todo: no nombres a ningún proveedor y envía solo con `radar.py enviar`.
 No hace falta pymupdf. Ejecuta `radar.py` con `/usr/bin/python3 -X utf8 radar.py`.
@@ -12,7 +12,7 @@ Si en `drive.datos` existe `enviado_semana_HOY`, termina sin hacer nada ("ya env
 ## 2. Históricos de la semana
 - En `drive.datos`, busca los `historico_AAAA-MM-DD.json` con fecha entre el lunes de esta semana y HOY, ambos incluidos.
 - Descarga cada uno a `/tmp/sem/historico_<fecha>.json`. Si `download_file_content` vuelca la respuesta a un archivo, ese archivo ya es el JSON: cópialo. Si viene en base64, decodifícalo con python. **Nunca copies el contenido a mano.**
-- Si no hay el de HOY, la diaria aún no ha terminado (corre a las 11:00, 11:30, 12:00 y 12:30). Espera 10 min (`sleep 600`) y vuelve a buscarlo, hasta 5 veces. Si a la quinta sigue sin estar, avisa a Cris (paso 6) y termina sin enviar.
+- Si no hay el de HOY, la diaria aún no ha terminado (corre a las 11:00, 11:30, 12:00 y 12:30). No esperes (en la rutina, una espera en segundo plano corta la sesión): avisa a Cris (paso 6) y termina sin enviar.
 - Si hay menos de 2, avisa a Cris y termina.
 
 ## 3. `/tmp/semana.json`
